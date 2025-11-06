@@ -28,7 +28,7 @@ use Carbon\Carbon;
  * @property Carbon $updated_at 更新时间
  * @property string $deleted_at 删除时间
  * @property-write mixed $password 密码
- * @property-read null|Collection|SystemRole[] $roles
+ * @property-read null|Collection|SystemRole[] $roles 
  */
 class SystemAdmin extends Model
 {
@@ -45,7 +45,7 @@ class SystemAdmin extends Model
     /**
      * The attributes that should be cast to native types.
      */
-    protected array $casts = ['id' => 'integer', 'gender' => 'integer', 'status' => 'integer', 'sort' => 'integer','last_login_at'=>'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+    protected array $casts = ['id' => 'integer', 'gender' => 'integer', 'status' => 'integer', 'sort' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
 
     /**
      * 软删除默认值（表示未删除）
