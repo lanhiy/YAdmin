@@ -21,7 +21,7 @@ return [
             // 业务异常处理器
             App\Exception\Handler\BusinessExceptionHandler::class,
             // 验证异常处理器
-            Hyperf\Validation\ValidationExceptionHandler::class,
+            App\Exception\Handler\ValidationExceptionHandler::class,
             App\Exception\Handler\AppExceptionHandler::class,
         ],
     ],
