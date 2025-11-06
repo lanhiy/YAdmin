@@ -13,6 +13,10 @@ use Hyperf\HttpServer\Router\Router;
 
 Router::addRoute(['GET', 'POST', 'HEAD'], '/', 'App\Controller\IndexController@index');
 
+Router::addGroup('/system',function (Router $router){
+    Router::post('/login','App\System\Controller\HomeController@login');
+},['middleware' => [FooMiddleware::class]]);
+
 Router::get('/favicon.ico', function () {
     return '';
 });

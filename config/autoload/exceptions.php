@@ -16,8 +16,12 @@ return [
     'handler' => [
         'http' => [
             Hyperf\HttpServer\Exception\Handler\HttpExceptionHandler::class,
-            App\Exception\Handler\ValidationExceptionHandler::class,
+            // JWT 异常处理器（放在前面，优先级高）
+            App\Exception\Handler\JwtAuthExceptionHandler::class,
+            // 业务异常处理器
             App\Exception\Handler\BusinessExceptionHandler::class,
+            // 验证异常处理器
+            Hyperf\Validation\ValidationExceptionHandler::class,
             App\Exception\Handler\AppExceptionHandler::class,
         ],
     ],
