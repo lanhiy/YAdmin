@@ -30,8 +30,9 @@ class AppExceptionHandler extends ExceptionHandler
     {
         $this->logger->error(sprintf('%s[%s] in %s', $throwable->getMessage(), $throwable->getLine(), $throwable->getFile()));
         $format = [
-            'message' => ErrorCode::getMessage(ErrorCode::SERVER_ERROR),
             'code' => ErrorCode::SERVER_ERROR,
+            'message' => ErrorCode::getMessage(ErrorCode::SERVER_ERROR),
+            'data'=>null,
         ];
         return $response->withHeader('Server','123123')
             ->withHeader('Access-Control-Allow-Origin', '*')

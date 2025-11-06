@@ -2,6 +2,7 @@
 
 namespace App\Exception\Handler;
 
+use App\Constants\ErrorCode;
 use App\Exception\BusinessException;
 use Hyperf\Codec\Json;
 use Hyperf\Contract\StdoutLoggerInterface;
@@ -22,8 +23,9 @@ class BusinessExceptionHandler extends ExceptionHandler
     {
         $this->stopPropagation();
         $format = [
-            'message' => $throwable->getMessage(),
-            'code' => $throwable->getCode(),
+            'code' => ErrorCode::REQUEST_FAILED,
+            'message' => $throwable->getMessage() ?:ErrorCode::getMessage(ErrorCode::REQUEST_FAILED),
+            'data'=>null,
         ];
         return $response->withHeader('Server','123123')
             ->withHeader('Access-Control-Allow-Origin', '*')

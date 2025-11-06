@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Utils\JsonUtils;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\HttpServer\Contract\ResponseInterface;
@@ -27,4 +28,15 @@ abstract class AbstractController
 
     #[Inject]
     protected ResponseInterface $response;
+
+    #[Inject]
+    protected JsonUtils $json;
+
+    /**
+     * 成功响应
+     */
+    protected function success(mixed $data = null, string $message = '操作成功'): \Psr\Http\Message\ResponseInterface
+    {
+        return $this->json->success($data, $message);
+    }
 }

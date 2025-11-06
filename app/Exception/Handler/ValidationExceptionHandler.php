@@ -18,8 +18,9 @@ class ValidationExceptionHandler extends ExceptionHandler
         /** @var ValidationException $throwable */
         $body = $throwable->validator->errors()->first();
         $format = [
-            'message' => $body,
             'code' => ErrorCode::VALIDATE_FAILED,
+            'message' => $body,
+            'data'=>null,
         ];
         return $response->withHeader('Server','123123')
             ->withHeader('Access-Control-Allow-Origin', '*')
