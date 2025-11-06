@@ -63,11 +63,12 @@ class LoginLogic
 
 
         return [
-            'user_id' => $user->id,
-            'username' => $user->username,
-            'nickname' => $user->nickname,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
+            'accessToken' => $token,
         ];
+    }
+
+    public function getUserInfo(int $adminId)
+    {
+        return ['roles'=>[],'realName'=>'蓝海'];
     }
 }

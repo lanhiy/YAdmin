@@ -51,6 +51,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ->withAttribute('username', $payload->get('username'))
                 ->withAttribute('nickname', $payload->get('nickname'));
 
+            // ====== 关键：先通过中间件，再处理后续请求 ======
             return $handler->handle($request);
 
         } catch (TokenExpiredException $e) {
@@ -77,13 +78,9 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ErrorCode::TOKEN_INVALID,
                 'Token 无效：' . $e->getMessage()
             );
-
-        } catch (\Throwable $e) {
-            // 其他未知异常
-            throw new JwtAuthException(
-                ErrorCode::TOKEN_PARSE_ERROR,
-                'Token 解析失败'
-            );
         }
+
+        // ====== 移除 catch (\Throwable $e) ======
+        // 让其他异常继续向上抛出，由对应的异常处理器处理
     }
 }
