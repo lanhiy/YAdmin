@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Carbon\Carbon;
+use Hyperf\Database\Model\Relations\BelongsToMany;
 use Hyperf\Database\Model\SoftDeletes;
 /**
  * @property int $id ID
@@ -34,4 +35,12 @@ class SystemRole extends Model
      * The attributes that should be cast to native types.
      */
     protected array $casts = ['id' => 'integer', 'sort' => 'integer', 'status' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+
+    /**
+     * 关联管理员 - 多对多
+     */
+    public function admins(): BelongsToMany
+    {
+        return $this->belongsToMany(SystemAdmin::class,'system_admin_role','role_id','admin_id')->withTimestamps();
+    }
 }

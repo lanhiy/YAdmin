@@ -7,6 +7,7 @@ namespace App\Model;
 
 
 use Carbon\Carbon;
+use Hyperf\Database\Model\Relations\BelongsTo;
 
 /**
  * @property int $id ID
@@ -31,4 +32,20 @@ class SystemAdminRole extends Model
      * The attributes that should be cast to native types.
      */
     protected array $casts = ['id' => 'integer', 'admin_id' => 'integer', 'role_id' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+
+    /**
+     * 关联管理员
+     */
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(SystemAdmin::class, 'admin_id', 'id');
+    }
+
+    /**
+     * 关联角色
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(SystemRole::class, 'role_id', 'id');
+    }
 }

@@ -6,6 +6,7 @@ namespace App\Model;
 
 
 
+use Hyperf\Database\Model\Relations\BelongsToMany;
 use Hyperf\Database\Model\SoftDeletes;
 use Carbon\Carbon;
 
@@ -64,4 +65,13 @@ class SystemAdmin extends Model
     {
         $this->attributes['password'] = password_hash($value, PASSWORD_DEFAULT);
     }
+
+    /**
+     * 关联角色 - 多对多
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(SystemRole::class,'system_admin_role','admin_id','role_id')->withTimestamps();
+    }
+
 }
