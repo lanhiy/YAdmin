@@ -9,6 +9,8 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+
+use Hyperf\Database\Commands\ModelOption;
 use function Hyperf\Support\env;
 
 return [
@@ -35,6 +37,16 @@ return [
                 'path' => 'app/Model',
                 'force_casts' => true,
                 'inheritance' => 'Model',
+                'uses' => '',
+                'refresh_fillable' => true,
+                'table_mapping' => [],
+                'with_comments' => true,
+                'property_case' => ModelOption::PROPERTY_SNAKE_CASE,
+                'visitors' => [
+                    Hyperf\Database\Commands\Ast\ModelRewriteKeyInfoVisitor::class,
+                    Hyperf\Database\Commands\Ast\ModelRewriteSoftDeletesVisitor::class,
+                    Hyperf\Database\Commands\Ast\ModelRewriteTimestampsVisitor::class,
+                ],
             ],
         ],
     ],
