@@ -15,6 +15,8 @@ use Hyperf\Database\Model\Relations\BelongsTo;
  * @property int $role_id 角色ID
  * @property Carbon $created_at 创建时间
  * @property Carbon $updated_at 更新时间
+ * @property-read null|SystemAdmin $admin 
+ * @property-read null|SystemRole $role 
  */
 class SystemAdminRole extends Model
 {

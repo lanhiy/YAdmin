@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Carbon\Carbon;
+use Hyperf\Database\Model\Collection;
 use Hyperf\Database\Model\Relations\BelongsToMany;
 use Hyperf\Database\Model\SoftDeletes;
 /**
@@ -17,6 +18,7 @@ use Hyperf\Database\Model\SoftDeletes;
  * @property Carbon $created_at 创建时间
  * @property Carbon $updated_at 更新时间
  * @property string $deleted_at 删除时间
+ * @property-read null|Collection|SystemAdmin[] $admins
  */
 class SystemRole extends Model
 {

@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Constants;
+
+use Hyperf\Constants\Annotation\Constants;
+use Hyperf\Constants\Annotation\Message;
+use Hyperf\Constants\EnumConstantsTrait;
+
+#[Constants]
+enum ErrorCode: int
+{
+    use EnumConstantsTrait;
+
+    #[Message("Server Error!")]
+    case SERVER_ERROR = 500;
+
+    case VALIDATE_FAILED=422;
+}

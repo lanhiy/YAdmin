@@ -1,37 +1,25 @@
 <?php
 
-declare(strict_types=1);
-/**
- * This file is part of Hyperf.
- *
- * @link     https://www.hyperf.io
- * @document https://hyperf.wiki
- * @contact  group@hyperf.io
- * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
- */
-
 namespace App\Exception\Handler;
 
 use App\Constants\ErrorCode;
 use Hyperf\Codec\Json;
-use Hyperf\Contract\StdoutLoggerInterface;
 use Hyperf\ExceptionHandler\ExceptionHandler;
 use Hyperf\HttpMessage\Stream\SwooleStream;
+use Hyperf\Validation\ValidationException;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
-class AppExceptionHandler extends ExceptionHandler
+class ValidationExceptionHandler extends ExceptionHandler
 {
-    public function __construct(protected StdoutLoggerInterface $logger)
+    public function handle(Throwable $throwable, ResponseInterface $response): ResponseInterface
     {
-    }
-
-    public function handle(Throwable $throwable, ResponseInterface $response)
-    {
-        $this->logger->error(sprintf('%s[%s] in %s', $throwable->getMessage(), $throwable->getLine(), $throwable->getFile()));
+        $this->stopPropagation();
+        /** @var ValidationException $throwable */
+        $body = $throwable->validator->errors()->first();
         $format = [
-            'message' => ErrorCode::getMessage(ErrorCode::SERVER_ERROR),
-            'code' => ErrorCode::SERVER_ERROR,
+            'message' => $body,
+            'code' => ErrorCode::VALIDATE_FAILED,
         ];
         return $response->withHeader('Server','123123')
             ->withHeader('Access-Control-Allow-Origin', '*')
@@ -45,6 +33,7 @@ class AppExceptionHandler extends ExceptionHandler
 
     public function isValid(Throwable $throwable): bool
     {
-        return true;
+        return $throwable instanceof ValidationException;
     }
+
 }
