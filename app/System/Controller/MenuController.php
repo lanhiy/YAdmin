@@ -18,7 +18,7 @@ class MenuController extends AbstractController
     protected MenuLogic $logic;
 
     /**
-     * 获取菜单列表（树形）
+     * 获取菜单列表（树形）- 包含按钮
      */
     public function list(RequestInterface $request): ResponseInterface
     {
@@ -33,6 +33,16 @@ class MenuController extends AbstractController
     {
         $adminId = $request->getAttribute('admin_id');
         $data = $this->logic->getUserRoutes($adminId);
+        return $this->success($data);
+    }
+
+    /**
+     * 获取当前用户的按钮权限
+     */
+    public function buttons(RequestInterface $request): ResponseInterface
+    {
+        $adminId = $request->getAttribute('admin_id');
+        $data = $this->logic->getUserButtonPermissions($adminId);
         return $this->success($data);
     }
 

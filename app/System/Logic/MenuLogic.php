@@ -6,39 +6,139 @@ namespace App\System\Logic;
 
 use App\Exception\BusinessException;
 use App\Model\SystemMenu;
+use App\Model\SystemAdminRole;
+use App\Model\SystemRoleMenu;
 
 class MenuLogic
 {
     /**
-     * 获取菜单树（后台管理用）
+     * 获取菜单树（后台管理用）- 包含按钮类型
      */
     public function getMenuTree(int $parentId = 0): array
     {
-        // 一次性获取所有菜单
+        // ✅ 获取所有类型的菜单，包括按钮
         $menus = SystemMenu::query()
             ->orderBy('sort', 'asc')
-            ->whereIn('type', [SystemMenu::TYPE_CATALOG, SystemMenu::TYPE_MENU])
+            ->orderBy('id', 'asc')
             ->get();
 
         return $this->buildTreeFromList($menus, $parentId, false);
     }
 
     /**
-     * 获取用户的路由菜单（前端用）
+     * 获取用户的路由菜单（前端用）- 不包含按钮
      * 返回纯净的路由格式，可直接用于 router.addRoute
      */
     public function getUserRoutes(int $adminId): array
     {
-        // TODO: 根据用户权限过滤菜单
+        // ✅ 根据用户权限过滤菜单
+        $menuIds = $this->getUserMenuIds($adminId);
 
-        // 一次性获取所有启用的菜单（排除按钮类型）
+        // 获取用户有权限的启用菜单（排除按钮类型）
         $menus = SystemMenu::query()
             ->where('status', SystemMenu::STATUS_ENABLED)
             ->whereIn('type', [SystemMenu::TYPE_CATALOG, SystemMenu::TYPE_MENU])
+            ->whereIn('id', $menuIds)
             ->orderBy('sort', 'asc')
             ->get();
 
         return $this->buildTreeFromList($menus, 0, true);
+    }
+
+    /**
+     * 获取用户的按钮权限列表
+     */
+    public function getUserButtonPermissions(int $adminId): array
+    {
+        // ✅ 根据用户角色获取按钮权限
+        $menuIds = $this->getUserMenuIds($adminId);
+
+        // 获取用户有权限的启用按钮
+        $buttons = SystemMenu::query()
+            ->where('status', SystemMenu::STATUS_ENABLED)
+            ->where('type', SystemMenu::TYPE_BUTTON)
+            ->whereIn('id', $menuIds)
+            ->get(['id', 'name', 'title', 'authority', 'parent_id'])
+            ->toArray();
+
+        // 提取权限标识列表（返回扁平化的权限数组）
+        $permissions = [];
+        foreach ($buttons as $button) {
+            if (!empty($button['authority'])) {
+                // authority 是 JSON 数组，需要解析
+                $authorities = is_string($button['authority'])
+                    ? json_decode($button['authority'], true)
+                    : $button['authority'];
+
+                if (is_array($authorities)) {
+                    $permissions = array_merge($permissions, $authorities);
+                }
+            }
+        }
+
+        return array_values(array_unique($permissions));
+    }
+
+    /**
+     * 获取用户有权限的菜单ID列表
+     */
+    protected function getUserMenuIds(int $adminId): array
+    {
+        // 1. 获取用户的所有角色ID
+        $roleIds = SystemAdminRole::query()
+            ->where('admin_id', $adminId)
+            ->pluck('role_id')
+            ->toArray();
+
+        if (empty($roleIds)) {
+            return [];
+        }
+
+        // 2. 获取这些角色的所有菜单ID
+        $menuIds = SystemRoleMenu::query()
+            ->whereIn('role_id', $roleIds)
+            ->pluck('menu_id')
+            ->unique()
+            ->toArray();
+
+        // 3. 获取这些菜单的所有父级菜单ID（确保菜单树完整）
+        $allMenuIds = $this->getMenuIdsWithParents($menuIds);
+
+        return $allMenuIds;
+    }
+
+    /**
+     * 获取菜单ID及其所有父级菜单ID
+     * 确保返回的菜单树结构完整
+     */
+    protected function getMenuIdsWithParents(array $menuIds): array
+    {
+        if (empty($menuIds)) {
+            return [];
+        }
+
+        $allIds = $menuIds;
+
+        // 查询这些菜单的父级关系
+        $menus = SystemMenu::query()
+            ->whereIn('id', $menuIds)
+            ->get(['id', 'parent_id']);
+
+        foreach ($menus as $menu) {
+            // 递归获取所有父级ID
+            $parentId = $menu->parent_id;
+            while ($parentId > 0 && !in_array($parentId, $allIds)) {
+                $allIds[] = $parentId;
+
+                $parent = SystemMenu::query()
+                    ->where('id', $parentId)
+                    ->first(['parent_id']);
+
+                $parentId = $parent ? $parent->parent_id : 0;
+            }
+        }
+
+        return array_values(array_unique($allIds));
     }
 
     /**
@@ -236,6 +336,10 @@ class MenuLogic
             $data['query'] = json_decode($data['query'], true);
         }
 
+        // 设置默认值
+        $data['status'] = $data['status'] ?? SystemMenu::STATUS_ENABLED;
+        $data['sort'] = $data['sort'] ?? 0;
+
         $menu = SystemMenu::query()->create($data);
 
         return $menu->toArray();
@@ -262,6 +366,9 @@ class MenuLogic
 
         $menu->update($data);
 
+        // 刷新获取最新数据
+        $menu->refresh();
+
         return $menu->toArray();
     }
 
@@ -276,13 +383,13 @@ class MenuLogic
             throw new BusinessException('菜单不存在');
         }
 
-        // 检查是否有子菜单
+        // 检查是否有子菜单或子按钮
         $childCount = SystemMenu::query()
             ->where('parent_id', $id)
             ->count();
 
         if ($childCount > 0) {
-            throw new BusinessException('该菜单存在子菜单，无法删除');
+            throw new BusinessException('该菜单存在子菜单或按钮权限，无法删除');
         }
 
         $menu->delete();

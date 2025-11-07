@@ -38,7 +38,7 @@ class SystemAdminRequest extends FormRequest
 
             // 账号相关
             'username' => 'required|string|min:4|max:20|regex:/^[a-zA-Z0-9_]+$/',
-            'password' => $scene === 'save' ? 'required|string|min:6|max:50' : 'nullable|string|min:6|max:50', // 创建时必填，更新时选填
+            'password' => $scene === 'save' ? 'required|string|min:5|max:50' : 'nullable|string|min:5|max:50', // 创建时必填，更新时选填
             'role_ids' => 'required|array',
             'role_ids.*' => 'integer|exists:system_role,id', // 验证角色是否存在
 
@@ -47,7 +47,7 @@ class SystemAdminRequest extends FormRequest
 
             // 密码修改
             'oldPassword' => 'required|string',
-            'newPassword' => 'required|string|confirmed|min:6|max:50|different:oldPassword',
+            'newPassword' => 'required|string|confirmed|min:5|max:50|different:oldPassword',
             'newPassword_confirmation' => 'required|string',
         ];
     }
@@ -90,7 +90,7 @@ class SystemAdminRequest extends FormRequest
 
             // 密码
             'password.required' => '请输入密码',
-            'password.min' => '密码长度不能少于6位',
+            'password.min' => '密码长度不能少于5位',
             'password.max' => '密码长度不能超过50位',
 
             // 昵称
@@ -129,7 +129,7 @@ class SystemAdminRequest extends FormRequest
             // 修改密码
             'oldPassword.required' => '请输入旧密码',
             'newPassword.required' => '请输入新密码',
-            'newPassword.min' => '新密码长度不能少于6位',
+            'newPassword.min' => '新密码长度不能少于5位',
             'newPassword.max' => '新密码长度不能超过50位',
             'newPassword.confirmed' => '两次输入的新密码不一致',
             'newPassword.different' => '新密码不能与旧密码相同',

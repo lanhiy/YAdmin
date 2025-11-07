@@ -24,6 +24,8 @@ Router::addGroup('/system', function () {
         Router::get('/list', 'App\System\Controller\MenuController@list');
         // 获取当前用户的路由菜单
         Router::get('/routes', 'App\System\Controller\MenuController@routes');
+        // 获取当前用户的按钮权限
+        Router::get('/buttons', 'App\System\Controller\MenuController@buttons');
         // 获取菜单详情
         Router::get('/{id:\d+}', 'App\System\Controller\MenuController@show');
         // 新增菜单
