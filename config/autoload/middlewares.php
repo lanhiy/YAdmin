@@ -15,8 +15,8 @@ use Hyperf\Validation\Middleware\ValidationMiddleware;
 
 return [
     'http' => [
+        CorsMiddleware::class,
         // 数组内配置您的全局中间件，顺序根据该数组的顺序
         ValidationMiddleware::class,
-        CorsMiddleware::class,
     ],
 ];

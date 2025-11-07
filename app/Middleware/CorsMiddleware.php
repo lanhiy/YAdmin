@@ -30,7 +30,8 @@ class CorsMiddleware implements MiddlewareInterface
         $response = Context::get(ResponseInterface::class);
         $response = $response->withHeader('Access-Control-Allow-Origin', '*')
             ->withHeader('Access-Control-Allow-Credentials', 'true')
-            ->withHeader('Access-Control-Max-Age', 86400)
+            ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS') // 添加这行
+            ->withHeader('Access-Control-Max-Age', '86400')
             ->withHeader('Access-Control-Allow-Headers', 'DNT,Keep-Alive,User-Agent,Cache-Control,Content-Type,Authorization')
             ->withHeader('Access-Control-Expose-Headers', 'content-description,Content-Disposition,Date,Etag');
 

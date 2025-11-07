@@ -18,10 +18,6 @@ Router::addGroup('/system', function () {
     Router::post('/user/logout', 'App\System\Controller\HomeController@logout');
     Router::put('/user/profile', 'App\System\Controller\HomeController@updateProfile');
 
-    // 管理员相关
-    Router::get('/admin/list', 'App\System\Controller\AdminController@list');
-    Router::post('/admin/create', 'App\System\Controller\AdminController@create');
-
     // 系统菜单路由
     Router::addGroup('/menu', function () {
         // 获取菜单列表（树形）
@@ -38,6 +34,40 @@ Router::addGroup('/system', function () {
         Router::delete('/{id:\d+}', 'App\System\Controller\MenuController@destroy');
         // 修改菜单状态
         Router::post('/change-status', 'App\System\Controller\MenuController@changeStatus');
+    });
+
+    // 角色管理路由
+    Router::addGroup('/role', function () {
+        // 获取角色列表（分页）
+        Router::get('/list', 'App\System\Controller\RoleController@list');
+        // 获取所有角色（下拉选择）
+        Router::get('/all', 'App\System\Controller\RoleController@all');
+        // 获取角色详情
+        Router::get('/{id:\d+}', 'App\System\Controller\RoleController@show');
+        // 新增角色
+        Router::post('', 'App\System\Controller\RoleController@store');
+        // 更新角色
+        Router::put('/{id:\d+}', 'App\System\Controller\RoleController@update');
+        // 删除角色
+        Router::delete('/{id:\d+}', 'App\System\Controller\RoleController@destroy');
+        // 修改角色状态
+        Router::post('/change-status', 'App\System\Controller\RoleController@changeStatus');
+    });
+
+    // 用户管理路由
+    Router::addGroup('/admin', function () {
+        // 获取用户列表（分页）
+        Router::get('/list', 'App\System\Controller\AdminController@list');
+        // 获取用户详情
+        Router::get('/{id:\d+}', 'App\System\Controller\AdminController@show');
+        // 新增用户
+        Router::post('', 'App\System\Controller\AdminController@store');
+        // 更新用户
+        Router::put('/{id:\d+}', 'App\System\Controller\AdminController@update');
+        // 删除用户
+        Router::delete('/{id:\d+}', 'App\System\Controller\AdminController@destroy');
+        // 修改用户状态
+        Router::post('/change-status', 'App\System\Controller\AdminController@changeStatus');
     });
 
 

@@ -14,25 +14,13 @@ class MenuLogic
      */
     public function getMenuTree(int $parentId = 0): array
     {
+        // 一次性获取所有菜单
         $menus = SystemMenu::query()
-            ->where('parent_id', $parentId)
             ->orderBy('sort', 'asc')
+            ->whereIn('type', [SystemMenu::TYPE_CATALOG, SystemMenu::TYPE_MENU])
             ->get();
 
-        $result = [];
-        foreach ($menus as $menu) {
-            $item = $menu->toArray();
-
-            // 递归获取子菜单
-            $children = $this->getMenuTree($menu->id);
-            if (!empty($children)) {
-                $item['children'] = $children;
-            }
-
-            $result[] = $item;
-        }
-
-        return $result;
+        return $this->buildTreeFromList($menus, $parentId, false);
     }
 
     /**
@@ -42,36 +30,47 @@ class MenuLogic
     public function getUserRoutes(int $adminId): array
     {
         // TODO: 根据用户权限过滤菜单
-        // 目前先返回所有启用的菜单
-        return $this->buildRouteTree(0);
-    }
 
-    /**
-     * 构建路由树（纯净格式，用于前端 router.addRoute）
-     */
-    protected function buildRouteTree(int $parentId = 0): array
-    {
+        // 一次性获取所有启用的菜单（排除按钮类型）
         $menus = SystemMenu::query()
-            ->where('parent_id', $parentId)
             ->where('status', SystemMenu::STATUS_ENABLED)
-            ->where('type', '!=', SystemMenu::TYPE_BUTTON) // 按钮不作为路由
+            ->whereIn('type', [SystemMenu::TYPE_CATALOG, SystemMenu::TYPE_MENU])
             ->orderBy('sort', 'asc')
             ->get();
 
-        $routes = [];
-        foreach ($menus as $menu) {
-            $route = $this->menuToRoute($menu);
+        return $this->buildTreeFromList($menus, 0, true);
+    }
 
-            // 递归获取子路由
-            $children = $this->buildRouteTree($menu->id);
-            if (!empty($children)) {
-                $route['children'] = $children;
+    /**
+     * 从菜单列表构建树形结构（统一方法）
+     *
+     * @param \Hyperf\Database\Model\Collection $menus 菜单集合
+     * @param int $parentId 父菜单ID
+     * @param bool $isRoute 是否为路由格式（true：路由格式，false：完整菜单数据）
+     * @return array
+     */
+    protected function buildTreeFromList($menus, int $parentId = 0, bool $isRoute = false): array
+    {
+        $result = [];
+
+        foreach ($menus as $menu) {
+            if ($menu->parent_id !== $parentId) {
+                continue;
             }
 
-            $routes[] = $route;
+            // 根据类型转换数据格式
+            $item = $isRoute ? $this->menuToRoute($menu) : $menu->toArray();
+
+            // 递归获取子节点（从同一个列表中）
+            $children = $this->buildTreeFromList($menus, $menu->id, $isRoute);
+            if (!empty($children)) {
+                $item['children'] = $children;
+            }
+
+            $result[] = $item;
         }
 
-        return $routes;
+        return $result;
     }
 
     /**
