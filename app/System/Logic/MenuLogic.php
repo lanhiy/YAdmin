@@ -188,11 +188,6 @@ class MenuLogic
             $route['meta'] = $meta;
         }
 
-        // ✅ 如果是目录类型，添加 noBasicLayout 标记
-        if ($menu->type === SystemMenu::TYPE_CATALOG) {
-            $meta['noBasicLayout'] = true;
-        }
-
         // 2. 路由名称
         $route['name'] = $menu->name;
 

@@ -191,15 +191,15 @@ class AdminLogic
             throw new BusinessException('用户不存在');
         }
 
-        // 检查用户名是否重复
-        $exists = SystemAdmin::query()
-            ->where('username', $data['username'])
-            ->where('id', '!=', $id)
-            ->exists();
+//        // 检查用户名是否重复
+//        $exists = SystemAdmin::query()
+//            ->where('username', $data['username'])
+//            ->where('id', '!=', $id)
+//            ->exists();
 
-        if ($exists) {
-            throw new BusinessException('用户名已存在');
-        }
+//        if ($exists) {
+//            throw new BusinessException('用户名已存在');
+//        }
 
         // 检查手机号是否重复
 //        if (!empty($data['mobile'])) {
@@ -226,6 +226,7 @@ class AdminLogic
 //        }
 
         $roleIds = $data['role_ids'] ?? [];
+        unset($data['username']);
         unset($data['role_ids']);
 
         // 如果传入了密码则更新密码
