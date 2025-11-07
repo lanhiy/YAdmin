@@ -82,7 +82,10 @@ class UserLogic
 
         return [
             'roles' => [],
+            'user_id'=>$user->getAttributes()['id'],
+            'username' => $user->getAttributes()['username'],
             'realName' => $user->getAttributes()['nickname'],
+            'nickname' => $user->getAttributes()['nickname'],
             'email' => $user->getAttributes()['email'],
             'mobile' => $user->getAttributes()['mobile'],
             'avatar' => $user->getAttributes()['avatar'],
