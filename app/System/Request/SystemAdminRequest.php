@@ -11,9 +11,9 @@ class SystemAdminRequest extends FormRequest
     protected array $scenes = [
         'login' => ['username', 'password'],
         'save' => ['username', 'password', 'nickname', 'mobile', 'email', 'gender', 'status', 'sort', 'remark', 'role_ids'],
-        'update' => ['username', 'nickname', 'mobile', 'email', 'gender', 'status', 'sort', 'remark', 'role_ids', 'password'], // password 可选
+        'update' => ['username', 'nickname', 'mobile', 'email', 'gender', 'status', 'sort', 'remark', 'role_ids', 'password'],
         'changeStatus' => ['id', 'status'],
-        'modifyUserInfo' => ['nickname', 'avatar', 'mobile', 'email'], // 统一用 mobile
+        'modifyUserInfo' => ['nickname', 'mobile', 'email', 'gender', 'avatar', 'remark'], // ✅ 添加 gender, avatar, remark
         'modifyPassword' => ['oldPassword', 'newPassword', 'newPassword_confirmation'],
     ];
 
@@ -22,28 +22,27 @@ class SystemAdminRequest extends FormRequest
      */
     public function rules(): array
     {
-        // 获取当前场景
         $scene = $this->getScene();
 
         return [
             // 基础字段
             'id' => 'required|integer',
             'nickname' => 'nullable|string|max:50',
-            'avatar' => 'nullable|url',
-            'mobile' => ['nullable', 'regex:/^1[3-9]\d{9}$/'], // 统一使用 mobile
+            'avatar' => 'nullable|string|max:255', // ✅ 改为 string
+            'mobile' => ['nullable', 'regex:/^1[3-9]\d{9}$/'],
             'email' => 'nullable|email|max:100',
-            'gender' => 'nullable|integer|in:0,1,2', // 0:未知, 1:男, 2:女
+            'gender' => 'nullable|integer|in:0,1,2',
             'sort' => 'nullable|integer|min:0',
             'remark' => 'nullable|string|max:500',
 
             // 账号相关
             'username' => 'required|string|min:4|max:20|regex:/^[a-zA-Z0-9_]+$/',
-            'password' => $scene === 'save' ? 'required|string|min:5|max:50' : 'nullable|string|min:5|max:50', // 创建时必填，更新时选填
+            'password' => $scene === 'save' ? 'required|string|min:5|max:50' : 'nullable|string|min:5|max:50',
             'role_ids' => 'required|array',
-            'role_ids.*' => 'integer|exists:system_role,id', // 验证角色是否存在
+            'role_ids.*' => 'integer|exists:system_role,id',
 
             // 状态
-            'status' => 'required|integer|in:0,1', // 0:禁用, 1:启用
+            'status' => 'required|integer|in:0,1',
 
             // 密码修改
             'oldPassword' => 'required|string',
@@ -82,51 +81,40 @@ class SystemAdminRequest extends FormRequest
     public function messages(): array
     {
         return [
-            // 用户名
             'username.required' => '请输入用户名',
             'username.min' => '用户名长度为4-20位',
             'username.max' => '用户名长度为4-20位',
             'username.regex' => '用户名只能包含字母、数字和下划线',
 
-            // 密码
             'password.required' => '请输入密码',
             'password.min' => '密码长度不能少于5位',
             'password.max' => '密码长度不能超过50位',
 
-            // 昵称
             'nickname.string' => '用户昵称必须是字符串',
             'nickname.max' => '用户昵称最多50个字符',
 
-            // 头像
-            'avatar.url' => '头像链接格式有误',
+            'avatar.string' => '头像必须是字符串',
+            'avatar.max' => '头像URL最多255个字符',
 
-            // 手机号
             'mobile.regex' => '手机号格式不正确',
 
-            // 邮箱
             'email.email' => '邮箱格式不正确',
             'email.max' => '邮箱长度不能超过100个字符',
 
-            // 性别
             'gender.in' => '性别值不合法',
 
-            // 排序
             'sort.integer' => '排序必须是整数',
             'sort.min' => '排序不能小于0',
 
-            // 备注
             'remark.max' => '备注最多500个字符',
 
-            // 角色
             'role_ids.required' => '请选择角色',
             'role_ids.array' => '角色必须是数组格式',
             'role_ids.*.exists' => '选择的角色不存在',
 
-            // 状态
             'status.required' => '请选择状态',
             'status.in' => '状态值不合法',
 
-            // 修改密码
             'oldPassword.required' => '请输入旧密码',
             'newPassword.required' => '请输入新密码',
             'newPassword.min' => '新密码长度不能少于5位',
