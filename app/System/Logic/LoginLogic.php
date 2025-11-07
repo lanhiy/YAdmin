@@ -69,6 +69,15 @@ class LoginLogic
 
     public function getUserInfo(int $adminId)
     {
-        return ['roles'=>[],'realName'=>'蓝海'];
+        $user = SystemAdmin::query()->where('id',$adminId)->first();
+
+        return [
+            'roles'=>[],
+            'realName'=>$user->getAttributes()['nickname'],
+            'email'=>$user->getAttributes()['email'],
+            'mobile'=>$user->getAttributes()['mobile'],
+            'avatar'=>$user->getAttributes()['avatar'],
+            'gender'=>$user->getAttributes()['gender'],
+        ];
     }
 }

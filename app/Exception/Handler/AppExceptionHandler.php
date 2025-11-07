@@ -31,7 +31,7 @@ class AppExceptionHandler extends ExceptionHandler
         $this->logger->error(sprintf('%s[%s] in %s', $throwable->getMessage(), $throwable->getLine(), $throwable->getFile()));
         $format = [
             'code' => ErrorCode::SERVER_ERROR,
-            'message' => ErrorCode::getMessage(ErrorCode::SERVER_ERROR),
+            'message' => $throwable->getMessage(),//ErrorCode::getMessage(ErrorCode::SERVER_ERROR)
             'data'=>null,
         ];
         return $response->withHeader('Server','123123')
