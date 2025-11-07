@@ -185,7 +185,6 @@ class AdminLogic
      */
     public function updateAdmin(int $id, array $data): array
     {
-        var_dump($data);
         $admin = SystemAdmin::query()->find($id);
 
         if (!$admin instanceof SystemAdmin) {
