@@ -175,7 +175,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
     {
         // 这里可以用你的 AdminLogic 或者直接查询
         $admin = SystemAdmin::query()
-            ->select(['id', 'is_super'])
+            ->select(['id'])
             ->find($adminId);
 
         if (!$admin) {
