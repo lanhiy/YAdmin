@@ -126,56 +126,47 @@ class UserLogic
             throw new BusinessException('用户不存在');
         }
 
-        // 开启事务
-        Db::beginTransaction();
-        try {
-            // 更新字段
-            if (isset($data['nickname'])) {
-                $user->nickname = $data['nickname'];
-            }
-            if (isset($data['mobile'])) {
-                // 检查手机号是否被其他用户使用
-                if ($data['mobile']) {
-                    $exists = SystemAdmin::query()
-                        ->where('mobile', $data['mobile'])
-                        ->where('id', '!=', $adminId)
-                        ->exists();
-                    if ($exists) {
-                        throw new BusinessException('该手机号已被使用');
-                    }
-                }
-                $user->mobile = $data['mobile'];
-            }
-            if (isset($data['email'])) {
-                // 检查邮箱是否被其他用户使用
-                if ($data['email']) {
-                    $exists = SystemAdmin::query()
-                        ->where('email', $data['email'])
-                        ->where('id', '!=', $adminId)
-                        ->exists();
-                    if ($exists) {
-                        throw new BusinessException('该邮箱已被使用');
-                    }
-                }
-                $user->email = $data['email'];
-            }
-            if (isset($data['gender'])) {
-                $user->gender = $data['gender'];
-            }
-            if (isset($data['avatar'])) {
-                $user->avatar = $data['avatar'];
-            }
-            if (isset($data['remark'])) {
-                $user->remark = $data['remark'];
-            }
-
-            $user->save();
-
-            Db::commit();
-        } catch (\Exception $e) {
-            Db::rollBack();
-            throw new BusinessException($e->getMessage());
+        // 更新字段
+        if (isset($data['nickname'])) {
+            $user->nickname = $data['nickname'];
         }
+        if (isset($data['mobile'])) {
+            // 检查手机号是否被其他用户使用
+            if ($data['mobile']) {
+                $exists = SystemAdmin::query()
+                    ->where('mobile', $data['mobile'])
+                    ->where('id', '!=', $adminId)
+                    ->exists();
+                if ($exists) {
+                    throw new BusinessException('该手机号已被使用');
+                }
+            }
+            $user->mobile = $data['mobile'];
+        }
+        if (isset($data['email'])) {
+            // 检查邮箱是否被其他用户使用
+            if ($data['email']) {
+                $exists = SystemAdmin::query()
+                    ->where('email', $data['email'])
+                    ->where('id', '!=', $adminId)
+                    ->exists();
+                if ($exists) {
+                    throw new BusinessException('该邮箱已被使用');
+                }
+            }
+            $user->email = $data['email'];
+        }
+        if (isset($data['gender'])) {
+            $user->gender = $data['gender'];
+        }
+        if (isset($data['avatar'])) {
+            $user->avatar = $data['avatar'];
+        }
+        if (isset($data['remark'])) {
+            $user->remark = $data['remark'];
+        }
+
+        $user->save();
     }
 
     /**
@@ -200,18 +191,9 @@ class UserLogic
             throw new BusinessException('新密码不能与旧密码相同');
         }
 
-        // 开启事务
-        Db::beginTransaction();
-        try {
-            // 更新密码
-            $user->password = SystemAdmin::passwordHash($data['newPassword']);
-            $user->save();
-
-            Db::commit();
-        } catch (\Exception $e) {
-            Db::rollBack();
-            throw new BusinessException('密码修改失败');
-        }
+        // 更新密码
+        $user->password =$data['newPassword'];
+        $user->save();
     }
 
     /**
