@@ -33,7 +33,9 @@ class CorsMiddleware implements MiddlewareInterface
             ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS') // 添加这行
             ->withHeader('Access-Control-Max-Age', '86400')
             ->withHeader('Access-Control-Allow-Headers', 'DNT,Keep-Alive,User-Agent,Cache-Control,Content-Type,Authorization')
-            ->withHeader('Access-Control-Expose-Headers', 'content-description,Content-Disposition,Date,Etag');
+            ->withHeader('Access-Control-Expose-Headers', 'content-description,Content-Disposition,Date,Etag')
+             // 添加私有网络访问头
+            ->withHeader('Access-Control-Allow-Private-Network', 'true');
 
         Context::set(ResponseInterface::class, $response);
 
