@@ -22,10 +22,11 @@ class RoleLogic
         $query = SystemRole::query();
 
         // 搜索条件
-        if (!empty($params['name'])) {
+        // 搜索条件 - 只在值非空时才添加条件
+        if (!empty($params['name']) && trim($params['name']) !== '') {
             $query->where('name', 'like', '%' . $params['name'] . '%');
         }
-        if (!empty($params['code'])) {
+        if (!empty($params['code']) && trim($params['code']) !== '') {
             $query->where('code', 'like', '%' . $params['code'] . '%');
         }
         if (isset($params['status']) && $params['status'] !== '') {

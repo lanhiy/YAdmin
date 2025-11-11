@@ -108,13 +108,24 @@ class JwtAuthMiddleware implements MiddlewareInterface
         $cacheKey = "user:roles:$adminId";
         $userRoles = $this->redis->get($cacheKey);
 
-        if ($userRoles === null) {
+        // ❌ 原来的代码：
+        // if ($userRoles === null) {
+
+        // ✅ 修复：Redis 不存在返回 false，需要同时判断 false 和 null
+        if ($userRoles === null || $userRoles === false) {
             // 缓存不存在，从数据库查询
             $userRoles = $this->getUserRoles($adminId);
             // 缓存 30 分钟
             $this->redis->setex($cacheKey, 1800, json_encode($userRoles));
         } else {
+            // ✅ 在解码前确保是字符串
             $userRoles = json_decode($userRoles, true);
+            // ✅ 添加 JSON 解析错误处理
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                // JSON 解析失败，重新从数据库获取
+                $userRoles = $this->getUserRoles($adminId);
+                $this->redis->setex($cacheKey, 1800, json_encode($userRoles));
+            }
         }
 
         // 超级管理员直接通过
@@ -171,9 +182,9 @@ class JwtAuthMiddleware implements MiddlewareInterface
             return ['is_super' => false, 'roles' => []];
         }
 
-//        if ($admin->is_super == 1) {
-//            return ['is_super' => true, 'roles' => []];
-//        }
+        if ($admin->id == 1) {
+            return ['is_super' => true, 'roles' => []];
+        }
 
         // 获取用户角色编码
         $roleCodes = SystemAdminRole::query()

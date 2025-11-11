@@ -29,6 +29,7 @@ class AppExceptionHandler extends ExceptionHandler
     public function handle(Throwable $throwable, ResponseInterface $response)
     {
         $this->logger->error(sprintf('%s[%s] in %s', $throwable->getMessage(), $throwable->getLine(), $throwable->getFile()));
+        var_dump($throwable->getTrace());
         $format = [
             'code' => ErrorCode::SERVER_ERROR,
             'message' => $throwable->getMessage(),//ErrorCode::getMessage(ErrorCode::SERVER_ERROR)
