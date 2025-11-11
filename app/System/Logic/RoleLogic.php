@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\System\Logic;
 
 use App\Exception\BusinessException;
+use App\Model\SystemMenu;
 use App\Model\SystemRole;
 use App\Model\SystemRoleMenu;
 use App\Model\SystemAdminRole;
+use Donjan\Casbin\Enforcer;
 use Hyperf\DbConnection\Db;
 
 class RoleLogic
@@ -231,6 +233,46 @@ class RoleLogic
                 ];
             }
             SystemRoleMenu::query()->insert($data);
+        }
+
+        // ✅ 同步 Casbin 权限（只同步按钮权限）
+        $this->syncCasbinPermissions($roleId, $menuIds);
+    }
+
+    /**
+     * 同步 Casbin 权限（只处理按钮权限）
+     */
+    protected function syncCasbinPermissions(int $roleId, array $menuIds): void
+    {
+        $role = SystemRole::query()->find($roleId);
+        if (!$role instanceof SystemRole) {
+            return;
+        }
+
+        $roleCode = $role->code; // 例如: admin, editor
+
+        // 1. 删除角色的所有权限
+        Enforcer::deletePermissionsForUser($roleCode);
+
+        // 2. 如果没有菜单权限，直接返回
+        if (empty($menuIds)) {
+            return;
+        }
+
+        // 3. 只获取按钮类型的菜单（type = 3）
+        $buttons = SystemMenu::query()
+            ->whereIn('id', $menuIds)
+            ->where('type', SystemMenu::TYPE_BUTTON) // 只查询按钮
+            ->where('status', SystemMenu::STATUS_ENABLED)
+            ->get(['id', 'authority'])
+            ->toArray();
+
+        // 4. 为角色添加按钮权限
+        foreach ($buttons as $button) {
+            if (!empty($button['authority'])) {
+                // authority 格式: system:admin:edit
+                Enforcer::addPermissionForUser($roleCode, $button['authority'], '*');
+            }
         }
     }
 }
