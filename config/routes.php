@@ -9,7 +9,9 @@ Router::addRoute(['GET', 'POST', 'HEAD'], '/', [App\Controller\IndexController::
 
 // ========== 不需要认证的路由 ==========
 Router::post('/system/login', [App\System\Controller\UserController::class, 'login']);
-//Router::post('/system/register', [App\System\Controller\UserController::class,'register']); // 如果有注册
+
+// ✅ 系统配置 - 前端初始化用（不需要认证）
+Router::get('/system/config', [App\System\Controller\ConfigController::class, 'all']);
 
 // ========== 需要认证的路由 ==========
 Router::addGroup('/system', function () {
@@ -17,7 +19,7 @@ Router::addGroup('/system', function () {
     Router::get('/user/info', [App\System\Controller\UserController::class, 'userInfo']);
     Router::post('/user/logout', [App\System\Controller\UserController::class, 'logout']);
 
-    // ✅ 个人中心路由
+    // 个人中心路由
     Router::get('/profile', [App\System\Controller\UserController::class, 'getProfile']);
     Router::put('/profile', [App\System\Controller\UserController::class, 'updateProfile']);
     Router::post('/profile/change-password', [App\System\Controller\UserController::class, 'changePassword']);
@@ -54,6 +56,20 @@ Router::addGroup('/system', function () {
         Router::put('/{id:\d+}', [App\System\Controller\AdminController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\AdminController::class, 'destroy']);
         Router::post('/change-status', [App\System\Controller\AdminController::class, 'changeStatus']);
+    });
+
+    // ✅ 系统配置管理路由（需要认证和权限）
+    Router::addGroup('/config', function () {
+        // ✅ 新增：前端表单更新配置接口
+        Router::post('/update', [App\System\Controller\ConfigController::class, 'updateConfig']);
+        Router::get('/list', [App\System\Controller\ConfigController::class, 'list']);
+        Router::get('/type/{type}', [App\System\Controller\ConfigController::class, 'getByType']);
+        Router::get('/{id:\d+}', [App\System\Controller\ConfigController::class, 'show']);
+        Router::post('', [App\System\Controller\ConfigController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\ConfigController::class, 'update']);
+        Router::post('/batch-update', [App\System\Controller\ConfigController::class, 'batchUpdate']);
+        Router::delete('/{id:\d+}', [App\System\Controller\ConfigController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\ConfigController::class, 'changeStatus']);
     });
 
 }, ['middleware' => [JwtAuthMiddleware::class]]);
