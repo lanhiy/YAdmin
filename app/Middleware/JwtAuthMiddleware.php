@@ -6,6 +6,8 @@ namespace App\Middleware;
 
 use App\Constants\ErrorCode;
 use App\Exception\JwtAuthException;
+use App\Model\SystemAdmin;
+use App\Model\SystemAdminRole;
 use Donjan\Casbin\Enforcer;
 use HyperfExtension\Jwt\Contracts\JwtFactoryInterface;
 use HyperfExtension\Jwt\Exceptions\JwtException;
@@ -46,15 +48,8 @@ class JwtAuthMiddleware implements MiddlewareInterface
             $jwt = $this->jwtFactory->make();
 
             // 解析 Token
-            try {
-                $jwt->parseToken($request);
-            } catch (JwtException $e) {
-                throw new JwtAuthException(
-                    ErrorCode::TOKEN_MISSING,
-                    'Token 缺失，请先登录',
-                    401
-                );
-            }
+            $jwt->parseToken();
+
 
             // 验证 Token
             $payload = $jwt->checkOrFail();
@@ -70,26 +65,23 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ->withAttribute('nickname', $payload->get('nickname'));
 
             // ✅ 权限检查（只检查按钮权限）
-            $this->checkPermission($request, $adminId, $username);
+            $this->checkPermission($request, $adminId);
 
             return $handler->handle($request);
 
-        } catch (TokenExpiredException $e) {
+        } catch (TokenExpiredException) {
             throw new JwtAuthException(
                 ErrorCode::TOKEN_EXPIRED,
                 'Token 已过期，请重新登录',
                 401
             );
 
-        } catch (TokenBlacklistedException $e) {
+        } catch (TokenBlacklistedException) {
             throw new JwtAuthException(
                 ErrorCode::TOKEN_BLACKLISTED,
                 'Token 已失效，请重新登录',
                 401
             );
-
-        } catch (JwtAuthException $e) {
-            throw $e;
 
         } catch (JwtException $e) {
             throw new JwtAuthException(
@@ -103,7 +95,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
     /**
      * 检查权限（只检查按钮权限 authority）
      */
-    protected function checkPermission(ServerRequestInterface $request, int $adminId, string $username): void
+    protected function checkPermission(ServerRequestInterface $request, int $adminId): void
     {
         $path = $request->getUri()->getPath();
 
@@ -113,7 +105,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
         }
 
         // ✅ 从 Redis 缓存获取用户角色（减少数据库查询）
-        $cacheKey = "user:roles:{$adminId}";
+        $cacheKey = "user:roles:$adminId";
         $userRoles = $this->redis->get($cacheKey);
 
         if ($userRoles === null) {
@@ -159,7 +151,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
         if (!$hasPermission) {
             throw new JwtAuthException(
                 ErrorCode::FORBIDDEN,
-                "您没有权限执行此操作 [{$authority}]",
+                "您没有权限执行此操作 [$authority]",
                 403
             );
         }
@@ -171,7 +163,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
     protected function getUserRoles(int $adminId): array
     {
         // 这里可以用你的 AdminLogic 或者直接查询
-        $admin = \App\Model\SystemAdmin::query()
+        $admin = SystemAdmin::query()
             ->select(['id', 'is_super'])
             ->find($adminId);
 
@@ -179,12 +171,12 @@ class JwtAuthMiddleware implements MiddlewareInterface
             return ['is_super' => false, 'roles' => []];
         }
 
-        if ($admin->is_super == 1) {
-            return ['is_super' => true, 'roles' => []];
-        }
+//        if ($admin->is_super == 1) {
+//            return ['is_super' => true, 'roles' => []];
+//        }
 
         // 获取用户角色编码
-        $roleCodes = \App\Model\SystemAdminRole::query()
+        $roleCodes = SystemAdminRole::query()
             ->where('admin_id', $adminId)
             ->join('system_role', 'system_admin_role.role_id', '=', 'system_role.id')
             ->where('system_role.status', 1)

@@ -42,4 +42,8 @@ enum ErrorCode: int
 
     #[Message("Token 解析失败")]
     case TOKEN_PARSE_ERROR = 40104;
+
+    // ✅ 权限相关错误码
+    #[Message("没有访问权限")]
+    case FORBIDDEN = 403;
 }
