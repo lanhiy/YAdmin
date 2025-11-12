@@ -16,6 +16,7 @@ enum ErrorCode: int
     #[Message("服务异常")]
     case SERVER_ERROR = 500;
 
+    #[Message("参数验证失败")]
     case VALIDATE_FAILED = 422;
 
     #[Message("请求成功")]
@@ -43,7 +44,14 @@ enum ErrorCode: int
     #[Message("Token 解析失败")]
     case TOKEN_PARSE_ERROR = 40104;
 
-    // ✅ 权限相关错误码
+    // 权限相关错误码
     #[Message("没有访问权限")]
     case FORBIDDEN = 403;
+
+    // HTTP 相关错误码
+    #[Message("请求的资源不存在")]
+    case NOT_FOUND = 404;
+
+    #[Message("请求方法不被允许")]
+    case METHOD_NOT_ALLOWED = 405;
 }

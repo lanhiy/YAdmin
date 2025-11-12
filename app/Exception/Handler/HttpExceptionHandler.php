@@ -6,34 +6,33 @@ namespace App\Exception\Handler;
 
 use App\Constants\ErrorCode;
 use Hyperf\Codec\Json;
-use Hyperf\Contract\StdoutLoggerInterface;
 use Hyperf\ExceptionHandler\ExceptionHandler;
+use Hyperf\HttpMessage\Exception\HttpException;
 use Hyperf\HttpMessage\Stream\SwooleStream;
-use Hyperf\Validation\ValidationException;
 use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
-class ValidationExceptionHandler extends ExceptionHandler
+class HttpExceptionHandler extends ExceptionHandler
 {
-    public function __construct(protected StdoutLoggerInterface $logger)
-    {
-    }
-
     public function handle(Throwable $throwable, ResponseInterface $response): ResponseInterface
     {
         $this->stopPropagation();
 
-        /** @var ValidationException $throwable */
-        $errors = $throwable->validator->errors();
-        $firstError = $errors->first();
+        /** @var HttpException $throwable */
+        $statusCode = $throwable->getStatusCode();
 
-//        $this->logger->info('验证失败: ' . $firstError, [
-//            'errors' => $errors->toArray(),
-//        ]);
+        // 根据 HTTP 状态码映射到 ErrorCode
+        $errorCode = match ($statusCode) {
+            404 => ErrorCode::NOT_FOUND,
+            405 => ErrorCode::METHOD_NOT_ALLOWED,
+            403 => ErrorCode::FORBIDDEN,
+            401 => ErrorCode::UNAUTHORIZED,
+            default => ErrorCode::SERVER_ERROR,
+        };
 
         $format = [
-            'code' => ErrorCode::VALIDATE_FAILED->value,
-            'message' => $firstError, // 这里用实际的验证错误信息，不用 ErrorCode
+            'code' => $errorCode->value,
+            'message' => $errorCode->getMessage(),
             'data' => null,
         ];
 
@@ -44,12 +43,12 @@ class ValidationExceptionHandler extends ExceptionHandler
             ->withHeader('Access-Control-Allow-Credentials', 'true')
             ->withHeader('Access-Control-Allow-Headers', 'accept-language,authorization,lang,uid,token,Keep-Alive,User-Agent,Cache-Control,Content-Type')
             ->withAddedHeader('content-type', 'application/json; charset=utf-8')
-            ->withStatus(200)
+            ->withStatus($statusCode)
             ->withBody(new SwooleStream(Json::encode($format)));
     }
 
     public function isValid(Throwable $throwable): bool
     {
-        return $throwable instanceof ValidationException;
+        return $throwable instanceof HttpException;
     }
 }
