@@ -9,21 +9,28 @@ declare(strict_types=1);
  * @contact  group@hyperf.io
  * @license  https://github.com/hyperf/hyperf/blob/master/LICENSE
  */
+use Monolog\Formatter\LineFormatter;
+use Monolog\Handler\StreamHandler;
+use Monolog\Level;
+
 return [
-    'default' => [
-        'handler' => [
-            'class' => Monolog\Handler\StreamHandler::class,
-            'constructor' => [
-                'stream' => BASE_PATH . '/runtime/logs/hyperf.log',
-                'level' => Monolog\Logger::DEBUG,
+    'default' => 'default',
+    'channels' => [
+        'default' => [
+            'handler' => [
+                'class' => StreamHandler::class,
+                'constructor' => [
+                    'stream' => BASE_PATH . '/runtime/logs/hyperf.log',
+                    'level' => Level::Debug,
+                ],
             ],
-        ],
-        'formatter' => [
-            'class' => Monolog\Formatter\LineFormatter::class,
-            'constructor' => [
-                'format' => null,
-                'dateFormat' => 'Y-m-d H:i:s',
-                'allowInlineLineBreaks' => true,
+            'formatter' => [
+                'class' => LineFormatter::class,
+                'constructor' => [
+                    'format' => null,
+                    'dateFormat' => 'Y-m-d H:i:s',
+                    'allowInlineLineBreaks' => true,
+                ],
             ],
         ],
     ],
