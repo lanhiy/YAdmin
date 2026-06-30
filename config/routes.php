@@ -72,6 +72,16 @@ Router::addGroup('/system', function () {
         Router::post('/change-status', [App\System\Controller\ConfigController::class, 'changeStatus']);
     });
 
+    // 业务模块 - 证书管理路由
+    Router::addGroup('/business/certificate', function () {
+        Router::get('/list', [App\System\Controller\Business\CertificateController::class, 'list']);
+        Router::get('/{id:\d+}', [App\System\Controller\Business\CertificateController::class, 'show']);
+        Router::post('', [App\System\Controller\Business\CertificateController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\Business\CertificateController::class, 'update']);
+        Router::delete('/{id:\d+}', [App\System\Controller\Business\CertificateController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\Business\CertificateController::class, 'changeStatus']);
+    });
+
 }, ['middleware' => [JwtAuthMiddleware::class]]);
 
 Router::get('/favicon.ico', function () {

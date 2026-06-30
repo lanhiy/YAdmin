@@ -222,6 +222,10 @@ class JwtAuthMiddleware implements MiddlewareInterface
             // 配置管理
             '/system/config/update' => 'system:config:edit',
             '/system/config/list'   => 'system:config:list',
+
+            // 证书管理
+            '/system/business/certificate'      => 'system:certificate:add',
+            '/system/business/certificate/list' => 'system:certificate:list',
         ];
 
         // 处理动态路由（如 /system/admin/123）
