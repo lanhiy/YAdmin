@@ -20,6 +20,25 @@ function di(): ContainerInterface
     return ApplicationContext::getContainer();
 }
 
+if (!function_exists('generate_code')) {
+    /**
+     * 生成防混淆随机短码（去除易混淆的 0 1 I O l）
+     *
+     * @param int $length 码长度，默认 8 位
+     * @return string
+     */
+    function generate_code(int $length = 8): string
+    {
+        $charset = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+        $max = strlen($charset) - 1;
+        $code = '';
+        for ($i = 0; $i < $length; $i++) {
+            $code .= $charset[random_int(0, $max)];
+        }
+        return $code;
+    }
+}
+
 if (! function_exists('get_client_ip')) {
     /**
      * 获取客户端 ip
