@@ -158,9 +158,6 @@ class AdminLogic
         $roleIds = $data['role_ids'] ?? [];
         unset($data['role_ids']);
 
-        // 密码加密
-        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-
         // 设置默认值
         $data['gender'] = $data['gender'] ?? SystemAdmin::GENDER_UNKNOWN;
         $data['status'] = $data['status'] ?? SystemAdmin::STATUS_ENABLED;
@@ -229,10 +226,8 @@ class AdminLogic
         unset($data['username']);
         unset($data['role_ids']);
 
-        // 如果传入了密码则更新密码
-        if (!empty($data['password'])) {
-            $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-        } else {
+        // 密码由 SystemAdmin 的 Mutator 统一加密，避免重复哈希。
+        if (empty($data['password'])) {
             unset($data['password']);
         }
         return Db::transaction(function () use ($admin, $data, $roleIds) {

@@ -96,7 +96,7 @@ CREATE TABLE `system_admin`  (
 -- Records of system_admin
 -- ----------------------------
 INSERT INTO `system_admin` VALUES (1, 'admin', '18811012138', 'lanhiy@163.com', '$2y$10$5S6jKTpejKNnSlv2p2fmkuZeuJO68cNIub5m2mu/Yj5cOcgK/pQn6', '蓝海', 0, 'https://static.rocketzh.com/images/head/5.jpg', 1, 0, '2025-11-11 21:36:58', '127.0.0.1', '', '2025-11-01 00:00:00', '2025-11-11 21:36:58');
-INSERT INTO `system_admin` VALUES (2, 'yyyyy', '', '', '$2y$10$EQpWowOdR4lEjT9Iaj6lhuR3osnSRYIZqxJ7NJ3TAbEFDi1sVO4i.', 'yyyyy', 0, '', 1, 0, '2025-11-11 17:24:09', '192.168.0.141', '', '2025-11-11 17:07:46', '2025-11-11 17:24:09');
+INSERT INTO `system_admin` VALUES (2, 'yyyy', '', '', '$2y$10$ZDd.waQ8DiOf.WmM0.O7H.5tiP4xE07RBS.26/lziB4r2kiXkBlUq', 'yyyyy', 0, '', 1, 0, '2025-11-11 17:24:09', '192.168.0.141', '', '2025-11-11 17:07:46', '2025-11-11 17:24:09');
 
 -- ----------------------------
 -- Table structure for system_admin_role
