@@ -35,6 +35,7 @@ class JwtAuthMiddleware implements MiddlewareInterface
         '/system/menu/routes',
         '/system/menu/list',
         '/system/profile',
+        '/system/message',
     ];
 
     public function __construct(JwtFactoryInterface $jwtFactory)

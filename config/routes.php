@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Middleware\JwtAuthMiddleware;
+use App\Middleware\WebSocketTicketMiddleware;
+use App\System\WebSocket\MessageWebSocket;
 use Hyperf\HttpServer\Router\Router;
 
 Router::addRoute(['GET', 'POST', 'HEAD'], '/', [App\Controller\IndexController::class, 'index']);
@@ -13,11 +15,24 @@ Router::post('/system/login', [App\System\Controller\UserController::class, 'log
 // ✅ 系统配置 - 前端初始化用（不需要认证）
 Router::get('/system/config', [App\System\Controller\ConfigController::class, 'all']);
 
+// WebSocket 握手使用一次性 ticket 鉴权，避免在 URL 中暴露 JWT。
+Router::get('/ws/messages', MessageWebSocket::class, ['middleware' => [WebSocketTicketMiddleware::class]]);
+
 // ========== 需要认证的路由 ==========
 Router::addGroup('/system', function () {
     // 用户相关
     Router::get('/user/info', [App\System\Controller\UserController::class, 'userInfo']);
     Router::post('/user/logout', [App\System\Controller\UserController::class, 'logout']);
+
+    // 管理员点对点消息
+    Router::addGroup('/message', function () {
+        Router::post('/ticket', [App\System\Controller\MessageController::class, 'ticket']);
+        Router::get('/users', [App\System\Controller\MessageController::class, 'users']);
+        Router::get('/conversations', [App\System\Controller\MessageController::class, 'conversations']);
+        Router::get('/unread', [App\System\Controller\MessageController::class, 'unread']);
+        Router::get('/history/{peerId:\d+}', [App\System\Controller\MessageController::class, 'history']);
+        Router::post('/read/{peerId:\d+}', [App\System\Controller\MessageController::class, 'read']);
+    });
 
     // 个人中心路由
     Router::get('/profile', [App\System\Controller\UserController::class, 'getProfile']);

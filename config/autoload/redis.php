@@ -17,6 +17,10 @@ return [
         'auth' => env('REDIS_AUTH', null),
         'port' => (int) env('REDIS_PORT', 6379),
         'db' => (int) env('REDIS_DB', 0),
+        // 所有 Redis 客户端命令统一按应用隔离，包含历史业务缓存、JWT 黑名单和 Casbin 缓存。
+        'options' => [
+            'prefix' => env('REDIS_PREFIX', env('APP_NAME', 'skeleton') . ':'),
+        ],
         'pool' => [
             'min_connections' => 1,
             'max_connections' => 10,

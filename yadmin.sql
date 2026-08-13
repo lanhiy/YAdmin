@@ -238,7 +238,7 @@ CREATE TABLE `system_menu`  (
   INDEX `idx_type`(`type` ASC) USING BTREE,
   INDEX `idx_status`(`status` ASC) USING BTREE,
   INDEX `idx_sort`(`sort` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 36 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '系统菜单表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 37 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '系统菜单表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_menu
@@ -278,6 +278,7 @@ INSERT INTO `system_menu` VALUES (32, 35, 'ProfileUpdate', '', '', '', 3, '更�
 INSERT INTO `system_menu` VALUES (33, 35, 'ProfileChangePassword', '', '', '', 3, '修改密码', 'basil:lock-outline', '', 0, 0, 0, 0, 0, '[\"profile:changePassword\"]', 0, 0, '', 'normal', 'success', 0, 0, 1, '', -1, '', '', 0, 0, NULL, 3, 1, '', '2025-11-07 16:43:01', '2025-11-11 17:43:37');
 INSERT INTO `system_menu` VALUES (34, 35, 'ProfileUploadAvatar', '', '', '', 3, '上传头像', 'basil:windows-outline', '', 0, 0, 0, 0, 0, '[\"profile:uploadAvatar\"]', 0, 0, '', 'normal', 'success', 0, 0, 1, '', -1, '', '', 0, 0, NULL, 4, 1, '', '2025-11-07 16:43:01', '2025-11-11 17:43:38');
 INSERT INTO `system_menu` VALUES (35, 30, 'AccountProfile', '/account/profile', '/system/admin/profile/index', '', 2, '个人设置', 'eos-icons:patterns', '', 0, 0, 0, 0, 0, NULL, 0, 0, '', 'normal', 'success', 0, 0, 1, '', -1, '', '', 0, 0, NULL, 999, 1, '', '2025-11-07 17:02:25', '2025-11-11 18:00:24');
+INSERT INTO `system_menu` VALUES (36, 0, 'MessageCenter', '/message', '/system/message/index', '', 2, '消息中心', 'lucide:messages-square', '', 0, 0, 0, 0, 0, NULL, 0, 0, '', 'normal', 'success', 0, 0, 1, '', -1, '', '', 0, 0, NULL, 5, 1, '后台人员即时消息', '2026-08-13 00:00:00', '2026-08-13 00:00:00');
 
 -- ----------------------------
 -- Table structure for system_role
@@ -317,7 +318,7 @@ CREATE TABLE `system_role_menu`  (
   UNIQUE INDEX `uk_role_menu`(`role_id` ASC, `menu_id` ASC) USING BTREE,
   INDEX `idx_role_id`(`role_id` ASC) USING BTREE,
   INDEX `idx_menu_id`(`menu_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 169 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '角色菜单关联表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 171 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = '角色菜单关联表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Records of system_role_menu
@@ -368,5 +369,7 @@ INSERT INTO `system_role_menu` VALUES (165, 2, 32, '2025-11-11 17:06:36', '2025-
 INSERT INTO `system_role_menu` VALUES (166, 2, 33, '2025-11-11 17:06:36', '2025-11-11 17:06:36');
 INSERT INTO `system_role_menu` VALUES (167, 2, 34, '2025-11-11 17:06:36', '2025-11-11 17:06:36');
 INSERT INTO `system_role_menu` VALUES (168, 2, 4, '2025-11-11 17:06:36', '2025-11-11 17:06:36');
+INSERT INTO `system_role_menu` VALUES (169, 1, 36, '2026-08-13 00:00:00', '2026-08-13 00:00:00');
+INSERT INTO `system_role_menu` VALUES (170, 2, 36, '2026-08-13 00:00:00', '2026-08-13 00:00:00');
 
 SET FOREIGN_KEY_CHECKS = 1;
