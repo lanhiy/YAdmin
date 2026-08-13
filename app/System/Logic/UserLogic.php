@@ -19,6 +19,8 @@ class UserLogic
 
     /**
      * 管理员登录
+     *
+     * @return array{accessToken: string, expiresAt: int}
      */
     public function adminLogin(array $data): array
     {
@@ -66,6 +68,7 @@ class UserLogic
 
         return [
             'accessToken' => $token,
+            'expiresAt' => (int)$payload->get('exp'),
         ];
     }
 
