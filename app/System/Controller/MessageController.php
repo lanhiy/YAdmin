@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\System\Controller;
 
 use App\Controller\AbstractController;
+use App\Exception\BusinessException;
+use App\Model\SystemAdmin;
+use App\System\Service\AdminSessionService;
 use App\System\Service\MessageConnectionService;
 use App\System\Service\MessageService;
 use Hyperf\HttpServer\Contract\RequestInterface;
@@ -15,6 +18,7 @@ class MessageController extends AbstractController
     public function __construct(
         private readonly MessageService $messageService,
         private readonly MessageConnectionService $connectionService,
+        private readonly AdminSessionService $adminSessionService,
     ) {
     }
 
@@ -26,6 +30,29 @@ class MessageController extends AbstractController
     public function users(RequestInterface $request): ResponseInterface
     {
         return $this->success($this->messageService->getAvailableUsers((int) $request->getAttribute('admin_id')));
+    }
+
+    public function online(RequestInterface $request): ResponseInterface
+    {
+        return $this->success($this->messageService->getOnlineUsers((int) $request->getAttribute('admin_id')));
+    }
+
+    public function kick(int $adminId, RequestInterface $request): ResponseInterface
+    {
+        $operatorId = (int) $request->getAttribute('admin_id');
+        if ($operatorId !== 1) {
+            throw new BusinessException('仅超级管理员可以踢出在线用户');
+        }
+        if ($adminId <= 0 || $adminId === $operatorId) {
+            throw new BusinessException('不能踢出当前登录账号');
+        }
+        if (! (new SystemAdmin())->newQuery()->where('id', $adminId)->exists()) {
+            throw new BusinessException('用户不存在');
+        }
+
+        $this->adminSessionService->rotate($adminId);
+        $this->connectionService->kick($adminId);
+        return $this->success(null, '用户已踢下线');
     }
 
     public function conversations(RequestInterface $request): ResponseInterface

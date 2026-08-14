@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\System\WebSocket;
 
 use App\Exception\BusinessException;
+use App\System\Service\AdminSessionService;
 use App\System\Service\MessageConnectionService;
 use App\System\Service\MessageService;
 use Hyperf\Contract\OnCloseInterface;
@@ -19,6 +20,7 @@ class MessageWebSocket implements OnMessageInterface, OnOpenInterface, OnCloseIn
     public function __construct(
         private readonly MessageService $messageService,
         private readonly MessageConnectionService $connectionService,
+        private readonly AdminSessionService $adminSessionService,
         private readonly Sender $sender,
     ) {
     }
@@ -42,6 +44,15 @@ class MessageWebSocket implements OnMessageInterface, OnOpenInterface, OnCloseIn
         $adminId = (int) Context::get('admin_id');
         $fd = (int) ($frame->fd ?? 0);
         if ($adminId <= 0 || $fd <= 0) {
+            return;
+        }
+        if (! $this->adminSessionService->isValid(
+            $adminId,
+            time(),
+            (string) Context::get('auth_session', ''),
+        )) {
+            $this->connectionService->disconnect($adminId, $fd);
+            $this->sender->disconnect($fd, 4001, '登录会话已失效');
             return;
         }
         $this->connectionService->heartbeat($adminId, $fd);

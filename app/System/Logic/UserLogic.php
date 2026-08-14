@@ -4,6 +4,7 @@ namespace App\System\Logic;
 
 use App\Exception\BusinessException;
 use App\Model\SystemAdmin;
+use App\System\Service\AdminSessionService;
 use HyperfExtension\Jwt\Contracts\ManagerInterface;
 use Hyperf\DbConnection\Db;
 
@@ -13,6 +14,7 @@ class UserLogic
 
     public function __construct(
         ManagerInterface $manager,
+        private readonly AdminSessionService $adminSessionService,
     ) {
         $this->manager = $manager;
     }
@@ -62,6 +64,7 @@ class UserLogic
             'username' => $user->username,
             'nickname' => $user->nickname,
             'admin_id' => $user->id,
+            'auth_session' => $this->adminSessionService->getOrCreate((int) $user->id),
         ]);
 
         $token = $this->manager->encode($payload)->get();

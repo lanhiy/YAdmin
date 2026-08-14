@@ -28,6 +28,8 @@ Router::addGroup('/system', function () {
     Router::addGroup('/message', function () {
         Router::post('/ticket', [App\System\Controller\MessageController::class, 'ticket']);
         Router::get('/users', [App\System\Controller\MessageController::class, 'users']);
+        Router::get('/online', [App\System\Controller\MessageController::class, 'online']);
+        Router::post('/kick/{adminId:\d+}', [App\System\Controller\MessageController::class, 'kick']);
         Router::get('/conversations', [App\System\Controller\MessageController::class, 'conversations']);
         Router::get('/unread', [App\System\Controller\MessageController::class, 'unread']);
         Router::get('/history/{peerId:\d+}', [App\System\Controller\MessageController::class, 'history']);

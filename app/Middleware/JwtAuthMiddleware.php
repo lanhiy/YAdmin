@@ -8,6 +8,7 @@ use App\Constants\ErrorCode;
 use App\Exception\JwtAuthException;
 use App\Model\SystemAdmin;
 use App\Model\SystemAdminRole;
+use App\System\Service\AdminSessionService;
 use Donjan\Casbin\Enforcer;
 use HyperfExtension\Jwt\Contracts\JwtFactoryInterface;
 use HyperfExtension\Jwt\Exceptions\JwtException;
@@ -38,7 +39,10 @@ class JwtAuthMiddleware implements MiddlewareInterface
         '/system/message',
     ];
 
-    public function __construct(JwtFactoryInterface $jwtFactory)
+    public function __construct(
+        JwtFactoryInterface $jwtFactory,
+        private readonly AdminSessionService $adminSessionService,
+    )
     {
         $this->jwtFactory = $jwtFactory;
     }
@@ -56,6 +60,13 @@ class JwtAuthMiddleware implements MiddlewareInterface
             $payload = $jwt->checkOrFail();
             $adminId = $payload->get('admin_id');
             $username = $payload->get('username');
+            if (! $this->adminSessionService->isValid(
+                (int) $adminId,
+                (int) $payload->get('iat', 0),
+                (string) $payload->get('auth_session', ''),
+            )) {
+                throw new TokenBlacklistedException('登录会话已失效');
+            }
 
             // 将用户信息注入到请求中
             $request = $request

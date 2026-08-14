@@ -19,6 +19,8 @@ class MessageService
 
     public function __construct(
         private readonly Redis $redis,
+        private readonly MessageConnectionService $connectionService,
+        private readonly AdminSessionService $adminSessionService,
         ConfigInterface $config,
     ) {
         $this->ttl = (int) $config->get('message.ttl', 2592000);
@@ -29,7 +31,11 @@ class MessageService
     public function createWebSocketTicket(int $adminId): array
     {
         $ticket = bin2hex(random_bytes(32));
-        $this->redis->setex($this->ticketKey($ticket), $this->ticketTtl, (string) $adminId);
+        $this->redis->setex($this->ticketKey($ticket), $this->ticketTtl, json_encode([
+            'admin_id' => $adminId,
+            'session' => $this->adminSessionService->getOrCreate($adminId),
+            'issued_at' => time(),
+        ], JSON_THROW_ON_ERROR));
 
         return [
             'ticket' => $ticket,
@@ -37,18 +43,29 @@ class MessageService
         ];
     }
 
-    public function consumeWebSocketTicket(string $ticket): int
+    public function consumeWebSocketTicket(string $ticket): array
     {
         if (! preg_match('/^[a-f0-9]{64}$/', $ticket)) {
-            return 0;
+            return [];
         }
 
         $key = $this->ticketKey($ticket);
         $adminId = $this->redis->getDel($key);
         if ($adminId === false || $adminId === null) {
-            return 0;
+            return [];
         }
-        return (int) $adminId;
+        $data = json_decode((string) $adminId, true);
+        if (is_array($data)) {
+            $id = (int) ($data['admin_id'] ?? 0);
+            $session = (string) ($data['session'] ?? '');
+            if ($id > 0 && $this->adminSessionService->isValid($id, (int) ($data['issued_at'] ?? 0), $session)) {
+                return [
+                    'admin_id' => $id,
+                    'session' => $session,
+                ];
+            }
+        }
+        return [];
     }
 
     public function getAvailableUsers(int $adminId): array
@@ -59,7 +76,28 @@ class MessageService
             ->orderBy('sort')
             ->orderBy('id')
             ->get(['id', 'username', 'nickname', 'avatar'])
-            ->map(static fn (SystemAdmin $admin): array => self::adminSummary($admin))
+            ->map(fn (SystemAdmin $admin): array => self::adminSummary($admin, $this->connectionService->isOnline((int) $admin->id)))
+            ->values()
+            ->toArray();
+    }
+
+    public function getOnlineUsers(int $adminId): array
+    {
+        $onlineIds = array_values(array_filter(
+            $this->connectionService->getOnlineAdminIds(),
+            static fn (int $id): bool => $id !== $adminId,
+        ));
+        if ($onlineIds === []) {
+            return [];
+        }
+
+        return (new SystemAdmin())->newQuery()
+            ->where('status', SystemAdmin::STATUS_ENABLED)
+            ->whereIn('id', $onlineIds)
+            ->orderBy('sort')
+            ->orderBy('id')
+            ->get(['id', 'username', 'nickname', 'avatar'])
+            ->map(static fn (SystemAdmin $admin): array => self::adminSummary($admin, true))
             ->values()
             ->toArray();
     }
@@ -100,8 +138,8 @@ class MessageService
             'content' => $content,
             'created_at' => $createdAt,
             'read_at' => null,
-            'sender' => self::adminSummary($sender),
-            'receiver' => self::adminSummary($receiver),
+            'sender' => self::adminSummary($sender, $this->connectionService->isOnline($senderId)),
+            'receiver' => self::adminSummary($receiver, $this->connectionService->isOnline($receiverId)),
         ];
 
         $conversationId = $this->conversationId($senderId, $receiverId);
@@ -151,6 +189,7 @@ class MessageService
                 continue;
             }
             $peer = $message['sender_id'] === $peerId ? $message['sender'] : $message['receiver'];
+            $peer['online'] = $this->connectionService->isOnline($peerId);
             $result[] = [
                 'peer' => $peer,
                 'last_message' => $message,
@@ -270,13 +309,14 @@ class MessageService
         }
     }
 
-    private static function adminSummary(SystemAdmin $admin): array
+    private static function adminSummary(SystemAdmin $admin, bool $online = false): array
     {
         return [
             'id' => (int) $admin->id,
             'username' => (string) $admin->username,
             'nickname' => (string) ($admin->nickname ?: $admin->username),
             'avatar' => (string) ($admin->avatar ?? ''),
+            'online' => $online,
         ];
     }
 

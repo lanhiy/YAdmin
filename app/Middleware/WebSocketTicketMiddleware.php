@@ -22,7 +22,8 @@ class WebSocketTicketMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         parse_str($request->getUri()->getQuery(), $query);
-        $adminId = $this->messageService->consumeWebSocketTicket((string) ($query['ticket'] ?? ''));
+        $ticket = $this->messageService->consumeWebSocketTicket((string) ($query['ticket'] ?? ''));
+        $adminId = (int) ($ticket['admin_id'] ?? 0);
         $admin = $adminId > 0
             ? (new SystemAdmin())->newQuery()->where('id', $adminId)->where('status', SystemAdmin::STATUS_ENABLED)->first()
             : null;
@@ -31,6 +32,7 @@ class WebSocketTicketMiddleware implements MiddlewareInterface
         }
 
         Context::set('admin_id', $adminId);
+        Context::set('auth_session', (string) ($ticket['session'] ?? ''));
         return $handler->handle($request->withAttribute('admin_id', $adminId));
     }
 }
