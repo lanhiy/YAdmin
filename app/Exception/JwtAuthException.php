@@ -14,9 +14,9 @@ class JwtAuthException extends ServerException
         ErrorCode $errorCode,
         string $message = '',
         int $statusCode = 401,
-        Throwable $previous = null
+        ?Throwable $previous = null
     ) {
-        if (empty($message)) {
+        if ($message === '') {
             $message = $errorCode->getMessage();
         }
 

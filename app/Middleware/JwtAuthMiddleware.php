@@ -52,11 +52,16 @@ class JwtAuthMiddleware implements MiddlewareInterface
         try {
             $jwt = $this->jwtFactory->make();
 
-            // 解析 Token
+            if (! $jwt->getRequestParser()->hasToken($request)) {
+                throw new JwtAuthException(
+                    ErrorCode::TOKEN_MISSING,
+                    statusCode: 401,
+                );
+            }
+
             $jwt->parseToken();
 
 
-            // 验证 Token
             $payload = $jwt->checkOrFail();
             $adminId = $payload->get('admin_id');
             $username = $payload->get('username');
