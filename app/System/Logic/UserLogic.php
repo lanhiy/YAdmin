@@ -1,17 +1,36 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\System\Logic;
 
 use App\Exception\BusinessException;
 use App\Model\SystemAdmin;
 use App\System\Service\AdminSessionService;
+use App\System\Service\PermissionService;
 use HyperfExtension\Jwt\Contracts\ManagerInterface;
+use HyperfExtension\Jwt\Manager;
 use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 
+/** 管理员登录、身份资料和个人安全设置业务逻辑。 */
 class UserLogic
 {
-    protected $manager;
+    /** JWT 编解码管理器。 */
+    protected ManagerInterface $manager;
 
+    /** 管理员角色和权限查询服务。 */
+    #[Inject]
+    protected PermissionService $permissionService;
+
+    /** 前端动态路由构建逻辑。 */
+    #[Inject]
+    protected MenuLogic $menuLogic;
+
+    /**
+     * @param ManagerInterface $manager JWT 编解码管理器
+     * @param AdminSessionService $adminSessionService 管理员登录会话服务
+     */
     public function __construct(
         ManagerInterface $manager,
         private readonly AdminSessionService $adminSessionService,
@@ -22,6 +41,7 @@ class UserLogic
     /**
      * 管理员登录
      *
+     * @param array<string, mixed> $data 登录账号、密码和客户端 IP
      * @return array{accessToken: string, expiresAt: int}
      */
     public function adminLogin(array $data): array
@@ -56,7 +76,11 @@ class UserLogic
         $user->last_login_ip = $ip;
         $user->save();
 
-        // 从 Manager 获取 PayloadFactory
+        if (!$this->manager instanceof Manager) {
+            throw new BusinessException('JWT 管理器配置错误');
+        }
+
+        // 扩展包接口未声明载荷工厂方法，运行时实现固定为 Manager。
         $payloadFactory = $this->manager->getPayloadFactory();
 
         $payload = $payloadFactory->make([
@@ -77,6 +101,9 @@ class UserLogic
 
     /**
      * 获取用户信息（用于权限验证）
+     *
+     * @param int $adminId 管理员主键
+     * @return array<string, mixed>
      */
     public function getUserInfo(int $adminId): array
     {
@@ -86,9 +113,15 @@ class UserLogic
             throw new BusinessException('用户不存在');
         }
 
+        $snapshot = $this->permissionService->snapshot($adminId);
+
         return [
-            'roles' => [],
-            'user_id'=>$user->getAttributes()['id'],
+            // Vben Admin 动态权限模式直接使用这三个字段初始化权限状态。
+            'roles' => $snapshot['roles'],
+            'permissions' => $snapshot['permissions'],
+            'routes' => $this->menuLogic->getUserRoutes($adminId),
+            'is_super' => $snapshot['is_super'],
+            'user_id' => $user->getAttributes()['id'],
             'username' => $user->getAttributes()['username'],
             'realName' => $user->getAttributes()['nickname'],
             'nickname' => $user->getAttributes()['nickname'],
@@ -101,6 +134,9 @@ class UserLogic
 
     /**
      * 获取个人资料
+     *
+     * @param int $adminId 管理员主键
+     * @return array<string, mixed>
      */
     public function getProfile(int $adminId): array
     {
@@ -123,6 +159,9 @@ class UserLogic
 
     /**
      * 更新个人资料
+     *
+     * @param int $adminId 管理员主键
+     * @param array<string, mixed> $data 允许修改的个人资料
      */
     public function updateProfile(int $adminId, array $data): void
     {
@@ -177,6 +216,9 @@ class UserLogic
 
     /**
      * 修改密码
+     *
+     * @param int $adminId 管理员主键
+     * @param array<string, mixed> $data 旧密码与新密码
      */
     public function changePassword(int $adminId, array $data): void
     {
@@ -198,16 +240,16 @@ class UserLogic
         }
 
         // 更新密码
-        $user->password =$data['newPassword'];
+        $user->password = $data['newPassword'];
         $user->save();
     }
 
     /**
      * 上传头像
      *
-     * @param int $adminId
-     * @param mixed $file
-     * @return string 返回头像URL
+     * @param int $adminId 管理员主键
+     * @param mixed $file 框架上传文件对象
+     * @return string 上传成功后的头像 URL
      */
     public function uploadAvatar(int $adminId, $file): string
     {

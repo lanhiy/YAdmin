@@ -6,14 +6,16 @@ namespace App\System\Request;
 
 use Hyperf\Validation\Request\FormRequest;
 
+/** 菜单资源、权限标识及接口策略请求校验器。 */
 class SystemMenuRequest extends FormRequest
 {
+    /** @var array<string, array<int, string>> 不同操作需要验证的字段 */
     protected array $scenes = [
         'save' => [
             'parent_id', 'name', 'path', 'component', 'redirect', 'type',
             'title', 'icon', 'active_icon', 'hide_in_menu', 'hide_in_tab',
             'hide_in_breadcrumb', 'hide_children_in_menu', 'keep_alive',
-            'authority', 'ignore_access', 'menu_visible_with_forbidden',
+            'authority', 'api_routes', 'ignore_access', 'menu_visible_with_forbidden',
             'badge', 'badge_type', 'badge_variants', 'affix_tab',
             'affix_tab_order', 'full_path_key', 'active_path',
             'max_num_of_open_tab', 'link', 'iframe_src', 'open_in_new_window',
@@ -23,7 +25,7 @@ class SystemMenuRequest extends FormRequest
             'parent_id', 'name', 'path', 'component', 'redirect', 'type',
             'title', 'icon', 'active_icon', 'hide_in_menu', 'hide_in_tab',
             'hide_in_breadcrumb', 'hide_children_in_menu', 'keep_alive',
-            'authority', 'ignore_access', 'menu_visible_with_forbidden',
+            'authority', 'api_routes', 'ignore_access', 'menu_visible_with_forbidden',
             'badge', 'badge_type', 'badge_variants', 'affix_tab',
             'affix_tab_order', 'full_path_key', 'active_path',
             'max_num_of_open_tab', 'link', 'iframe_src', 'open_in_new_window',
@@ -34,6 +36,8 @@ class SystemMenuRequest extends FormRequest
 
     /**
      * 验证规则
+     *
+     * @return array<string, string>
      */
     public function rules(): array
     {
@@ -43,7 +47,7 @@ class SystemMenuRequest extends FormRequest
             'id' => $scene === 'changeStatus' ? 'required|integer' : 'sometimes|integer',
             'parent_id' => 'sometimes|nullable|integer',
             'name' => 'sometimes|required|string|max:100',
-            'path' => 'sometimes|required|string|max:255',
+            'path' => 'sometimes|nullable|string|max:255',
             'component' => 'sometimes|nullable|string|max:255',
             'redirect' => 'sometimes|nullable|string|max:255',
             'type' => 'sometimes|required|integer|in:1,2,3',
@@ -56,6 +60,10 @@ class SystemMenuRequest extends FormRequest
             'hide_children_in_menu' => 'sometimes|boolean',
             'keep_alive' => 'sometimes|boolean',
             'authority' => 'sometimes|nullable|array',
+            'authority.*' => 'string|max:100',
+            'api_routes' => 'sometimes|nullable|array',
+            'api_routes.*.method' => 'required|string|in:GET,POST,PUT,PATCH,DELETE,*',
+            'api_routes.*.path' => 'required|string|max:255',
             'ignore_access' => 'sometimes|boolean',
             'menu_visible_with_forbidden' => 'sometimes|boolean',
             'badge' => 'sometimes|nullable|string|max:50',
@@ -79,6 +87,8 @@ class SystemMenuRequest extends FormRequest
 
     /**
      * 字段映射名称
+     *
+     * @return array<string, string>
      */
     public function attributes(): array
     {
@@ -100,6 +110,8 @@ class SystemMenuRequest extends FormRequest
 
     /**
      * 自定义错误消息
+     *
+     * @return array<string, string>
      */
     public function messages(): array
     {
@@ -118,7 +130,7 @@ class SystemMenuRequest extends FormRequest
     }
 
     /**
-     * 授权验证
+     * 允许请求进入控制器，业务授权由 PermissionMiddleware 统一执行。
      */
     public function authorize(): bool
     {

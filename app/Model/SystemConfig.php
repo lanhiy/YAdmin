@@ -38,20 +38,20 @@ class SystemConfig extends Model
     /**
      * 状态常量
      */
-    public const STATUS_DISABLED = 0; // 禁用
-    public const STATUS_ENABLED = 1;  // 启用
+    public const int STATUS_DISABLED = 0; // 禁用
+    public const int STATUS_ENABLED = 1;  // 启用
 
     /**
      * 配置类型常量
      */
-    public const TYPE_APP = 'app';
-    public const TYPE_LOGO = 'logo';
-    public const TYPE_THEME = 'theme';
-    public const TYPE_COPYRIGHT = 'copyright';
-    public const TYPE_LAYOUT = 'layout';
-    public const TYPE_TABBAR = 'tabbar';
-    public const TYPE_SIDEBAR = 'sidebar';
-    public const TYPE_HEADER = 'header';
-    public const TYPE_BREADCRUMB = 'breadcrumb';
-    public const TYPE_FOOTER = 'footer';
+    public const string TYPE_APP = 'app';
+    public const string TYPE_LOGO = 'logo';
+    public const string TYPE_THEME = 'theme';
+    public const string TYPE_COPYRIGHT = 'copyright';
+    public const string TYPE_LAYOUT = 'layout';
+    public const string TYPE_TABBAR = 'tabbar';
+    public const string TYPE_SIDEBAR = 'sidebar';
+    public const string TYPE_HEADER = 'header';
+    public const string TYPE_BREADCRUMB = 'breadcrumb';
+    public const string TYPE_FOOTER = 'footer';
 }

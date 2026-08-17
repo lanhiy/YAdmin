@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Middleware\JwtAuthMiddleware;
+use App\Middleware\PermissionMiddleware;
 use App\Middleware\WebSocketTicketMiddleware;
 use App\System\WebSocket\MessageWebSocket;
 use Hyperf\HttpServer\Router\Router;
@@ -89,7 +90,7 @@ Router::addGroup('/system', function () {
         Router::post('/change-status', [App\System\Controller\ConfigController::class, 'changeStatus']);
     });
 
-}, ['middleware' => [JwtAuthMiddleware::class]]);
+}, ['middleware' => [JwtAuthMiddleware::class, PermissionMiddleware::class]]);
 
 Router::get('/favicon.ico', function () {
     return '';

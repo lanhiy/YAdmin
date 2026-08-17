@@ -5,24 +5,25 @@ declare(strict_types=1);
 namespace App\System\Logic;
 
 use App\Exception\BusinessException;
-use App\Model\SystemMenu;
+use App\Model\SystemAdminRole;
 use App\Model\SystemRole;
 use App\Model\SystemRoleMenu;
-use App\Model\SystemAdminRole;
-use Donjan\Casbin\Enforcer;
 use Hyperf\DbConnection\Db;
 
+/** 角色维护以及角色与菜单资源关系同步逻辑。 */
 class RoleLogic
 {
     /**
-     * 获取角色列表（分页）
+     * 按名称、编码和状态筛选角色分页列表。
+     *
+     * @param array{name?: string, code?: string, status?: int|string, page?: int, page_size?: int} $params 查询和分页参数
+     * @return array{list: array<int, array<string, mixed>>, total: int, page: int, page_size: int}
      */
     public function getRoleList(array $params = []): array
     {
         $query = SystemRole::query();
 
-        // 搜索条件
-        // 搜索条件 - 只在值非空时才添加条件
+        // 空搜索值不生成 LIKE 条件，避免无意义的全表过滤。
         if (!empty($params['name']) && trim($params['name']) !== '') {
             $query->where('name', 'like', '%' . $params['name'] . '%');
         }
@@ -60,7 +61,9 @@ class RoleLogic
     }
 
     /**
-     * 获取所有角色（用于下拉选择）
+     * 获取角色选择器使用的全部启用角色。
+     *
+     * @return array<int, array<string, mixed>>
      */
     public function getAllRoles(): array
     {
@@ -72,7 +75,10 @@ class RoleLogic
     }
 
     /**
-     * 根据ID获取角色
+     * 获取角色详情及其已分配的菜单资源 ID。
+     *
+     * @param int $id 角色主键
+     * @return array<string, mixed>
      */
     public function getRoleById(int $id): array
     {
@@ -96,7 +102,10 @@ class RoleLogic
     }
 
     /**
-     * 创建角色
+     * 创建角色并在同一事务中保存菜单资源关系。
+     *
+     * @param array<string, mixed> $data 角色字段及 menu_ids
+     * @return array<string, mixed>
      */
     public function createRole(array $data): array
     {
@@ -129,7 +138,11 @@ class RoleLogic
     }
 
     /**
-     * 更新角色
+     * 更新角色以及对应的菜单资源关系。
+     *
+     * @param int $id 角色主键
+     * @param array<string, mixed> $data 角色字段及 menu_ids
+     * @return array<string, mixed>
      */
     public function updateRole(int $id, array $data): array
     {
@@ -164,7 +177,9 @@ class RoleLogic
     }
 
     /**
-     * 删除角色
+     * 软删除尚未分配给管理员的角色，并清理菜单关系。
+     *
+     * @param int $id 角色主键
      */
     public function deleteRole(int $id): void
     {
@@ -195,7 +210,10 @@ class RoleLogic
     }
 
     /**
-     * 修改角色状态
+     * 修改角色启用状态；禁用后该角色不再参与权限快照。
+     *
+     * @param int $id 角色主键
+     * @param int $status 启用或禁用状态值
      */
     public function changeStatus(int $id, int $status): void
     {
@@ -215,7 +233,10 @@ class RoleLogic
     }
 
     /**
-     * 同步角色菜单权限
+     * 以提交的菜单 ID 集合完整替换角色原有资源关系。
+     *
+     * @param int $roleId 角色主键
+     * @param array<int, int|string> $menuIds 菜单资源主键集合
      */
     protected function syncRoleMenus(int $roleId, array $menuIds): void
     {
@@ -223,9 +244,9 @@ class RoleLogic
         SystemRoleMenu::query()->where('role_id', $roleId)->delete();
 
         // 添加新的关联
-        if (!empty($menuIds)) {
+        if ($menuIds !== []) {
             $data = [];
-            foreach ($menuIds as $menuId) {
+            foreach (array_unique(array_map('intval', $menuIds)) as $menuId) {
                 $data[] = [
                     'role_id' => $roleId,
                     'menu_id' => $menuId,
@@ -234,46 +255,6 @@ class RoleLogic
                 ];
             }
             SystemRoleMenu::query()->insert($data);
-        }
-
-        // ✅ 同步 Casbin 权限（只同步按钮权限）
-        $this->syncCasbinPermissions($roleId, $menuIds);
-    }
-
-    /**
-     * 同步 Casbin 权限（只处理按钮权限）
-     */
-    protected function syncCasbinPermissions(int $roleId, array $menuIds): void
-    {
-        $role = SystemRole::query()->find($roleId);
-        if (!$role instanceof SystemRole) {
-            return;
-        }
-
-        $roleCode = $role->code; // 例如: admin, editor
-
-        // 1. 删除角色的所有权限
-        Enforcer::deletePermissionsForUser($roleCode);
-
-        // 2. 如果没有菜单权限，直接返回
-        if (empty($menuIds)) {
-            return;
-        }
-
-        // 3. 只获取按钮类型的菜单（type = 3）
-        $buttons = SystemMenu::query()
-            ->whereIn('id', $menuIds)
-            ->where('type', SystemMenu::TYPE_BUTTON) // 只查询按钮
-            ->where('status', SystemMenu::STATUS_ENABLED)
-            ->get(['id', 'authority'])
-            ->toArray();
-
-        // 4. 为角色添加按钮权限
-        foreach ($buttons as $button) {
-            if (!empty($button['authority'])) {
-                // authority 格式: system:admin:edit
-                Enforcer::addPermissionForUser($roleCode, $button['authority'], '*');
-            }
         }
     }
 }

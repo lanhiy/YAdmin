@@ -53,6 +53,6 @@ class SystemRole extends Model
         return $this->belongsToMany(SystemMenu::class, 'system_role_menu', 'role_id', 'menu_id');
     }
 
-    public const STATUS_DISABLED = 0;
-    public const STATUS_ENABLED = 1;
+    public const int STATUS_DISABLED = 0;
+    public const int STATUS_ENABLED = 1;
 }

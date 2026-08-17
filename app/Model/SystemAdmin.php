@@ -74,11 +74,11 @@ class SystemAdmin extends Model
         return $this->belongsToMany(SystemRole::class,'system_admin_role','admin_id','role_id')->withTimestamps();
     }
 
-    public const STATUS_DISABLED = 0;
-    public const STATUS_ENABLED = 1;
+    public const int STATUS_DISABLED = 0;
+    public const int STATUS_ENABLED = 1;
 
-    public const GENDER_UNKNOWN = 0;
-    public const GENDER_MALE = 1;
-    public const GENDER_FEMALE = 2;
+    public const int GENDER_UNKNOWN = 0;
+    public const int GENDER_MALE = 1;
+    public const int GENDER_FEMALE = 2;
 
 }

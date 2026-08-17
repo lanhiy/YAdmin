@@ -13,7 +13,6 @@
     "license": "Apache-2.0",
     "require": {
         "php": ">=8.3",
-        "donjan-deng/hyperf-casbin": "^3.23",
         "hyperf-extension/jwt": "^3.1",
         "hyperf/cache": "~3.2.0",
         "hyperf/command": "~3.2.0",

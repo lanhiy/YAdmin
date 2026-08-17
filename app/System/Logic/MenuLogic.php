@@ -6,13 +6,22 @@ namespace App\System\Logic;
 
 use App\Exception\BusinessException;
 use App\Model\SystemMenu;
-use App\Model\SystemAdminRole;
-use App\Model\SystemRoleMenu;
+use App\System\Service\PermissionService;
+use Hyperf\Di\Annotation\Inject;
+use JsonException;
 
+/** 菜单资源维护、动态路由构建及权限策略校验逻辑。 */
 class MenuLogic
 {
+    /** 管理员菜单、按钮和权限标识查询服务。 */
+    #[Inject]
+    protected PermissionService $permissionService;
+
     /**
      * 获取菜单树（后台管理用）- 包含按钮类型
+     *
+     * @param int $parentId 起始父菜单 ID
+     * @return array<int, array<string, mixed>>
      */
     public function getMenuTree(int $parentId = 0): array
     {
@@ -26,13 +35,15 @@ class MenuLogic
     }
 
     /**
-     * 获取用户的路由菜单（前端用）- 不包含按钮
-     * 返回纯净的路由格式，可直接用于 router.addRoute
+     * 获取管理员可访问的 Vben5 动态路由树，不包含按钮资源。
+     *
+     * @param int $adminId 管理员主键
+     * @return array<int, array<string, mixed>>
      */
     public function getUserRoutes(int $adminId): array
     {
         // ✅ 根据用户权限过滤菜单
-        $menuIds = $this->getUserMenuIds($adminId);
+        $menuIds = $this->permissionService->snapshot($adminId)['menu_ids'];
 
         // 获取用户有权限的启用菜单（排除按钮类型）
         $menus = SystemMenu::query()
@@ -47,17 +58,20 @@ class MenuLogic
 
     /**
      * 获取用户的按钮权限列表
+     *
+     * @param int $adminId 管理员主键
+     * @return array<int, string>
      */
     public function getUserButtonPermissions(int $adminId): array
     {
         // ✅ 根据用户角色获取按钮权限
-        $menuIds = $this->getUserMenuIds($adminId);
+        $snapshot = $this->permissionService->snapshot($adminId);
 
         // 获取用户有权限的启用按钮
         $buttons = SystemMenu::query()
             ->where('status', SystemMenu::STATUS_ENABLED)
             ->where('type', SystemMenu::TYPE_BUTTON)
-            ->whereIn('id', $menuIds)
+            ->whereIn('id', $snapshot['assigned_menu_ids'])
             ->get(['id', 'name', 'title', 'authority', 'parent_id'])
             ->toArray();
 
@@ -80,76 +94,14 @@ class MenuLogic
     }
 
     /**
-     * 获取用户有权限的菜单ID列表
-     */
-    protected function getUserMenuIds(int $adminId): array
-    {
-        // 1. 获取用户的所有角色ID
-        $roleIds = SystemAdminRole::query()
-            ->where('admin_id', $adminId)
-            ->pluck('role_id')
-            ->toArray();
-
-        if (empty($roleIds)) {
-            return [];
-        }
-
-        // 2. 获取这些角色的所有菜单ID
-        $menuIds = SystemRoleMenu::query()
-            ->whereIn('role_id', $roleIds)
-            ->pluck('menu_id')
-            ->unique()
-            ->toArray();
-
-        // 3. 获取这些菜单的所有父级菜单ID（确保菜单树完整）
-        $allMenuIds = $this->getMenuIdsWithParents($menuIds);
-
-        return $allMenuIds;
-    }
-
-    /**
-     * 获取菜单ID及其所有父级菜单ID
-     * 确保返回的菜单树结构完整
-     */
-    protected function getMenuIdsWithParents(array $menuIds): array
-    {
-        if (empty($menuIds)) {
-            return [];
-        }
-
-        $allIds = $menuIds;
-
-        // 查询这些菜单的父级关系
-        $menus = SystemMenu::query()
-            ->whereIn('id', $menuIds)
-            ->get(['id', 'parent_id']);
-
-        foreach ($menus as $menu) {
-            // 递归获取所有父级ID
-            $parentId = $menu->parent_id;
-            while ($parentId > 0 && !in_array($parentId, $allIds)) {
-                $allIds[] = $parentId;
-
-                $parent = SystemMenu::query()
-                    ->where('id', $parentId)
-                    ->first(['parent_id']);
-
-                $parentId = $parent ? $parent->parent_id : 0;
-            }
-        }
-
-        return array_values(array_unique($allIds));
-    }
-
-    /**
      * 从菜单列表构建树形结构（统一方法）
      *
-     * @param \Hyperf\Database\Model\Collection $menus 菜单集合
+     * @param iterable<SystemMenu> $menus 菜单集合
      * @param int $parentId 父菜单ID
      * @param bool $isRoute 是否为路由格式（true：路由格式，false：完整菜单数据）
-     * @return array
+     * @return array<int, array<string, mixed>>
      */
-    protected function buildTreeFromList($menus, int $parentId = 0, bool $isRoute = false): array
+    protected function buildTreeFromList(iterable $menus, int $parentId = 0, bool $isRoute = false): array
     {
         $result = [];
 
@@ -176,6 +128,9 @@ class MenuLogic
     /**
      * 菜单转换为路由格式（符合Vben5规范）
      * 只返回路由必需的字段，不包含数据库原始字段
+     *
+     * @param SystemMenu $menu 菜单模型
+     * @return array<string, mixed>
      */
     protected function menuToRoute(SystemMenu $menu): array
     {
@@ -210,6 +165,9 @@ class MenuLogic
     /**
      * 构建路由的 meta 配置
      * 只添加有值且非默认值的字段
+     *
+     * @param SystemMenu $menu 菜单模型
+     * @return array<string, mixed>
      */
     protected function buildRouteMeta(SystemMenu $menu): array
     {
@@ -311,6 +269,8 @@ class MenuLogic
 
     /**
      * 根据ID获取菜单
+     *
+     * @return array<string, mixed>
      */
     public function getMenuById(int $id): array
     {
@@ -325,16 +285,15 @@ class MenuLogic
 
     /**
      * 创建菜单
+     *
+     * @param array<string, mixed> $data 菜单表单数据
+     * @return array<string, mixed>
      */
     public function createMenu(array $data): array
     {
-        // 处理JSON字段
-        if (isset($data['authority']) && is_string($data['authority'])) {
-            $data['authority'] = json_decode($data['authority'], true);
-        }
-        if (isset($data['query']) && is_string($data['query'])) {
-            $data['query'] = json_decode($data['query'], true);
-        }
+        $data = $this->normalizeJsonFields($data);
+        $this->validateRouteFields($data);
+        $this->validateApiPolicy($data);
 
         // 设置默认值
         $data['status'] = $data['status'] ?? SystemMenu::STATUS_ENABLED;
@@ -347,6 +306,10 @@ class MenuLogic
 
     /**
      * 更新菜单
+     *
+     * @param int $id 菜单主键
+     * @param array<string, mixed> $data 菜单表单数据
+     * @return array<string, mixed>
      */
     public function updateMenu(int $id, array $data): array
     {
@@ -356,13 +319,9 @@ class MenuLogic
             throw new BusinessException('菜单不存在');
         }
 
-        // 处理JSON字段
-        if (isset($data['authority']) && is_string($data['authority'])) {
-            $data['authority'] = json_decode($data['authority'], true);
-        }
-        if (isset($data['query']) && is_string($data['query'])) {
-            $data['query'] = json_decode($data['query'], true);
-        }
+        $data = $this->normalizeJsonFields($data);
+        $this->validateRouteFields($data, $menu);
+        $this->validateApiPolicy($data, $menu);
 
         $menu->update($data);
 
@@ -373,7 +332,9 @@ class MenuLogic
     }
 
     /**
-     * 删除菜单
+     * 删除没有下级资源的菜单。
+     *
+     * @param int $id 菜单主键
      */
     public function deleteMenu(int $id): void
     {
@@ -396,7 +357,10 @@ class MenuLogic
     }
 
     /**
-     * 修改菜单状态
+     * 修改菜单资源状态。
+     *
+     * @param int $id 菜单主键
+     * @param int $status 启用或禁用状态值
      */
     public function changeStatus(int $id, int $status): void
     {
@@ -412,5 +376,128 @@ class MenuLogic
 
         $menu->status = $status;
         $menu->save();
+    }
+
+    /**
+     * 校验目录和页面菜单具备前端路由路径，按钮资源允许路径为空。
+     *
+     * @param array<string, mixed> $data 当前提交数据
+     * @param null|SystemMenu $menu 更新时的原菜单模型
+     */
+    private function validateRouteFields(array $data, ?SystemMenu $menu = null): void
+    {
+        $type = array_key_exists('type', $data)
+            ? (int) $data['type']
+            : ($menu instanceof SystemMenu ? (int) $menu->type : SystemMenu::TYPE_MENU);
+        $path = array_key_exists('path', $data)
+            ? trim((string) $data['path'])
+            : ($menu instanceof SystemMenu ? trim((string) $menu->path) : '');
+        if ($type !== SystemMenu::TYPE_BUTTON && $path === '') {
+            throw new BusinessException('目录或菜单必须填写路由路径');
+        }
+    }
+
+    /**
+     * 规范菜单中的 JSON 字段和 API 路由格式。
+     *
+     * @param array<string, mixed> $data 菜单表单数据
+     * @return array<string, mixed>
+     */
+    private function normalizeJsonFields(array $data): array
+    {
+        foreach (['authority', 'api_routes', 'query'] as $field) {
+            if (!isset($data[$field]) || !is_string($data[$field])) {
+                continue;
+            }
+            try {
+                $data[$field] = json_decode($data[$field], true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                throw new BusinessException($field . ' 不是有效的 JSON 数据');
+            }
+        }
+
+        if (isset($data['api_routes']) && is_array($data['api_routes'])) {
+            $routes = [];
+            foreach ($data['api_routes'] as $route) {
+                if (!is_array($route)) {
+                    continue;
+                }
+                $method = strtoupper(trim((string) ($route['method'] ?? '')));
+                $path = '/' . trim((string) ($route['path'] ?? ''), '/');
+                if ($method !== '' && $path !== '/') {
+                    $routes[] = ['method' => $method, 'path' => $path];
+                }
+            }
+            $data['api_routes'] = $routes;
+        }
+
+        return $data;
+    }
+
+    /**
+     * 验证 API 策略拥有权限标识且不会与其他菜单资源重复。
+     *
+     * @param array<string, mixed> $data 当前提交数据
+     * @param null|SystemMenu $menu 更新时的原菜单模型
+     */
+    private function validateApiPolicy(array $data, ?SystemMenu $menu = null): void
+    {
+        $existingRoutes = $menu instanceof SystemMenu ? $menu->api_routes : [];
+        $routes = array_key_exists('api_routes', $data) ? $data['api_routes'] : $existingRoutes;
+        if (!is_array($routes) || $routes === []) {
+            return;
+        }
+
+        $existingIgnoreAccess = $menu instanceof SystemMenu ? (bool) $menu->ignore_access : false;
+        $existingAuthorities = $menu instanceof SystemMenu ? $menu->authority : [];
+        $ignoreAccess = (bool) ($data['ignore_access'] ?? $existingIgnoreAccess);
+        $authorities = array_key_exists('authority', $data) ? $data['authority'] : $existingAuthorities;
+        if (!$ignoreAccess && (!is_array($authorities) || $authorities === [])) {
+            throw new BusinessException('配置 API 路由时必须填写权限标识，或明确启用忽略权限');
+        }
+
+        $query = SystemMenu::query()->whereNotNull('api_routes');
+        if ($menu instanceof SystemMenu) {
+            $query->where('id', '!=', $menu->id);
+        }
+
+        foreach ($query->get(['id', 'title', 'api_routes']) as $existingMenu) {
+            if (!is_array($existingMenu->api_routes)) {
+                continue;
+            }
+            foreach ($routes as $route) {
+                foreach ($existingMenu->api_routes as $existingRoute) {
+                    if ($this->sameApiRoute($route, $existingRoute)) {
+                        throw new BusinessException(sprintf(
+                            'API 路由 %s %s 已绑定到菜单“%s”',
+                            strtoupper((string) ($route['method'] ?? '')),
+                            (string) ($route['path'] ?? ''),
+                            (string) $existingMenu->title,
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 判断两条 API 策略是否占用相同的方法和规范化路径。
+     *
+     * @param mixed $first 第一条 API 策略
+     * @param mixed $second 第二条 API 策略
+     */
+    private function sameApiRoute(mixed $first, mixed $second): bool
+    {
+        if (!is_array($first) || !is_array($second)) {
+            return false;
+        }
+
+        $firstMethod = strtoupper((string) ($first['method'] ?? ''));
+        $secondMethod = strtoupper((string) ($second['method'] ?? ''));
+        $methodsOverlap = $firstMethod === '*' || $secondMethod === '*' || $firstMethod === $secondMethod;
+        $firstPath = preg_replace('/\{[^}]+\}/', '{}', '/' . trim((string) ($first['path'] ?? ''), '/'));
+        $secondPath = preg_replace('/\{[^}]+\}/', '{}', '/' . trim((string) ($second['path'] ?? ''), '/'));
+
+        return $methodsOverlap && $firstPath === $secondPath;
     }
 }

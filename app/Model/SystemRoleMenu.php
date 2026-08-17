@@ -6,12 +6,14 @@ namespace App\Model;
 
 
 
+use Carbon\Carbon;
+
 /**
  * @property int $id ID
  * @property int $role_id 角色ID
  * @property int $menu_id 菜单ID
- * @property \Carbon\Carbon $created_at 创建时间
- * @property \Carbon\Carbon $updated_at 更新时间
+ * @property Carbon $created_at 创建时间
+ * @property Carbon $updated_at 更新时间
  */
 class SystemRoleMenu extends Model
 {
