@@ -9,9 +9,9 @@ use Hyperf\Validation\Request\FormRequest;
 class TestReportRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['product_id', 'report_no', 'client_name', 'unit_name', 'approver_sign_img', 'reviewer_sign_img', 'tester_sign_img', 'test_date', 'total_pages', 'remark', 'status'],
-        'update' => ['report_no', 'client_name', 'unit_name', 'approver_sign_img', 'reviewer_sign_img', 'tester_sign_img', 'test_date', 'total_pages', 'remark', 'status'],
-        'changeStatus' => ['id', 'status'],
+        'save' => ['product_id', 'report_no', 'client_name', 'unit_name', 'approver_sign_img', 'reviewer_sign_img', 'tester_sign_img', 'test_date', 'total_pages', 'remark'],
+        'update' => ['report_no', 'client_name', 'unit_name', 'approver_sign_img', 'reviewer_sign_img', 'tester_sign_img', 'test_date', 'total_pages', 'remark'],
+        'changeStatus' => ['id'],
     ];
 
     /**
@@ -33,7 +33,6 @@ class TestReportRequest extends FormRequest
             'test_date' => 'required|date',
             'total_pages' => 'integer|min:1',
             'remark' => 'string|max:500',
-            'status' => 'required|integer|in:0,1',
         ];
     }
 
@@ -54,7 +53,6 @@ class TestReportRequest extends FormRequest
             'test_date' => '测试日期',
             'total_pages' => '总页数',
             'remark' => '备注',
-            'status' => '状态',
         ];
     }
 
@@ -73,8 +71,6 @@ class TestReportRequest extends FormRequest
             'test_date.required' => '请选择测试日期',
             'test_date.date' => '测试日期格式不正确',
             'total_pages.min' => '总页数至少为1',
-            'status.required' => '请选择状态',
-            'status.in' => '状态值不合法',
         ];
     }
 

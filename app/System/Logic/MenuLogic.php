@@ -6,8 +6,7 @@ namespace App\System\Logic;
 
 use App\Exception\BusinessException;
 use App\Model\SystemMenu;
-use App\Model\SystemAdminRole;
-use App\Model\SystemRoleMenu;
+use App\Model\SystemPermission;
 use Hyperf\Di\Annotation\Inject;
 
 class MenuLogic
@@ -16,11 +15,13 @@ class MenuLogic
     protected PermissionLogic $permissionLogic;
 
     /**
-     * 获取菜单树（后台管理用）- 包含按钮类型
+     * 获取菜单树（后台菜单管理用）.
+     *
+     * 菜单已退回纯展示层，不再包含按钮类型节点——
+     * 按钮权限现在是 system_permission 里的一等公民。
      */
     public function getMenuTree(int $parentId = 0): array
     {
-        // ✅ 获取所有类型的菜单，包括按钮
         $menus = SystemMenu::query()
             ->orderBy('sort', 'asc')
             ->orderBy('id', 'asc')
@@ -30,23 +31,87 @@ class MenuLogic
     }
 
     /**
-     * 获取用户的路由菜单（前端用）- 不包含按钮
-     * 返回纯净的路由格式，可直接用于 router.addRoute
+     * 获取用户可见的路由菜单（前端用）.
+     *
+     * 可见性由权限派生，不再独立授权菜单：
+     *   - 菜单（type=2）：permission_id 为空则登录可见，否则需持有该权限
+     *   - 目录（type=1）：自身无权限要求，但没有可见子节点时自动隐藏
+     *
+     * 这样「授了菜单没授接口」或反之的不一致在结构上无法出现。
      */
     public function getUserRoutes(int $adminId): array
     {
-        // ✅ 根据用户权限过滤菜单
-        $menuIds = $this->getUserMenuIds($adminId);
+        $identity = $this->permissionLogic->identity($adminId);
 
-        // 获取用户有权限的启用菜单（排除按钮类型）
         $menus = SystemMenu::query()
             ->where('status', SystemMenu::STATUS_ENABLED)
-            ->whereIn('type', [SystemMenu::TYPE_CATALOG, SystemMenu::TYPE_MENU])
-            ->whereIn('id', $menuIds)
             ->orderBy('sort', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
-        return $this->buildTreeFromList($menus, 0, true);
+        // 权限点ID -> 权限码，用于判定菜单可见性
+        $codeMap = SystemPermission::query()
+            ->whereIn('id', $menus->pluck('permission_id')->filter()->unique()->all())
+            ->pluck('code', 'id')
+            ->all();
+
+        $visible = $menus->filter(function (SystemMenu $menu) use ($identity, $codeMap): bool {
+            // 目录的可见性由子节点决定，先全部保留，后续剪枝
+            if ($menu->type === SystemMenu::TYPE_CATALOG) {
+                return true;
+            }
+
+            // 未绑定权限点：登录可见（如分析页、工作台）
+            if (empty($menu->permission_id)) {
+                return true;
+            }
+
+            $code = $codeMap[$menu->permission_id] ?? null;
+
+            // 绑定了已失效的权限点：按 fail-closed 处理，不可见
+            return $code !== null && $identity->can((string) $code);
+        });
+
+        $tree = $this->buildTreeFromList($visible, 0, true);
+
+        return $this->pruneEmptyCatalogs($tree, $visible);
+    }
+
+    /**
+     * 剪掉没有可见子节点的空目录.
+     *
+     * 目录本身不承载页面，留着只会在侧边栏显示一个点不开的空壳。
+     */
+    private function pruneEmptyCatalogs(array $tree, $menus): array
+    {
+        // 收集目录的路由名，用于识别哪些节点是目录
+        $catalogNames = [];
+        foreach ($menus as $menu) {
+            if ($menu->type === SystemMenu::TYPE_CATALOG) {
+                $catalogNames[$menu->name] = true;
+            }
+        }
+
+        $filter = function (array $nodes) use (&$filter, $catalogNames): array {
+            $result = [];
+
+            foreach ($nodes as $node) {
+                if (! empty($node['children'])) {
+                    $node['children'] = $filter($node['children']);
+                }
+
+                // 目录且无可见子节点 -> 丢弃
+                if (isset($catalogNames[$node['name'] ?? '']) && empty($node['children'])) {
+                    continue;
+                }
+
+                $result[] = $node;
+            }
+
+            return $result;
+        };
+
+        return $filter($tree);
     }
 
     /**
@@ -59,67 +124,6 @@ class MenuLogic
         return $this->permissionLogic->getUserPermissionCodes($adminId);
     }
 
-    /**
-     * 获取用户有权限的菜单ID列表
-     */
-    protected function getUserMenuIds(int $adminId): array
-    {
-        // 1. 获取用户的所有角色ID
-        $roleIds = SystemAdminRole::query()
-            ->where('admin_id', $adminId)
-            ->pluck('role_id')
-            ->toArray();
-
-        if (empty($roleIds)) {
-            return [];
-        }
-
-        // 2. 获取这些角色的所有菜单ID
-        $menuIds = SystemRoleMenu::query()
-            ->whereIn('role_id', $roleIds)
-            ->pluck('menu_id')
-            ->unique()
-            ->toArray();
-
-        // 3. 获取这些菜单的所有父级菜单ID（确保菜单树完整）
-        $allMenuIds = $this->getMenuIdsWithParents($menuIds);
-
-        return $allMenuIds;
-    }
-
-    /**
-     * 获取菜单ID及其所有父级菜单ID
-     * 确保返回的菜单树结构完整
-     */
-    protected function getMenuIdsWithParents(array $menuIds): array
-    {
-        if (empty($menuIds)) {
-            return [];
-        }
-
-        $allIds = $menuIds;
-
-        // 查询这些菜单的父级关系
-        $menus = SystemMenu::query()
-            ->whereIn('id', $menuIds)
-            ->get(['id', 'parent_id']);
-
-        foreach ($menus as $menu) {
-            // 递归获取所有父级ID
-            $parentId = $menu->parent_id;
-            while ($parentId > 0 && !in_array($parentId, $allIds)) {
-                $allIds[] = $parentId;
-
-                $parent = SystemMenu::query()
-                    ->where('id', $parentId)
-                    ->first(['parent_id']);
-
-                $parentId = $parent ? $parent->parent_id : 0;
-            }
-        }
-
-        return array_values(array_unique($allIds));
-    }
 
     /**
      * 从菜单列表构建树形结构（统一方法）
@@ -224,10 +228,8 @@ class MenuLogic
         if ($menu->keep_alive) {
             $meta['keepAlive'] = true;
         }
-        // 前端 RouteMeta.authority 约定为数组，这里把单值包一层
-        if (!empty($menu->authority)) {
-            $meta['authority'] = [$menu->authority];
-        }
+        // 不再下发 authority：路由是否可见已在服务端按权限过滤完成，
+        // 前端无需再做一次判定，避免两处规则不一致。
         if ($menu->ignore_access) {
             $meta['ignoreAccess'] = true;
         }
@@ -309,7 +311,7 @@ class MenuLogic
      */
     public function createMenu(array $data): array
     {
-        $data['authority'] = $this->normalizeAuthority($data['authority'] ?? null);
+        $data['permission_id'] = $this->normalizePermissionId($data['permission_id'] ?? null);
 
         // 处理JSON字段
         if (isset($data['query']) && is_string($data['query'])) {
@@ -322,7 +324,7 @@ class MenuLogic
 
         $menu = SystemMenu::query()->create($data);
 
-        $this->permissionLogic->flushAllUserCache();
+        $this->permissionLogic->flushAllCache();
 
         return $menu->toArray();
     }
@@ -338,8 +340,8 @@ class MenuLogic
             throw new BusinessException('菜单不存在');
         }
 
-        if (array_key_exists('authority', $data)) {
-            $data['authority'] = $this->normalizeAuthority($data['authority']);
+        if (array_key_exists('permission_id', $data)) {
+            $data['permission_id'] = $this->normalizePermissionId($data['permission_id']);
         }
 
         // 处理JSON字段
@@ -352,30 +354,34 @@ class MenuLogic
         // 刷新获取最新数据
         $menu->refresh();
 
-        $this->permissionLogic->flushAllUserCache();
+        $this->permissionLogic->flushAllCache();
 
         return $menu->toArray();
     }
 
     /**
-     * 归一化权限标识：兼容前端传数组的旧格式，统一存单个字符串
+     * 归一化菜单绑定的权限点ID.
+     *
+     * 空值统一落 NULL，表示登录可见；同时校验权限点真实存在，
+     * 避免绑定到脏ID导致菜单永久不可见。
      */
-    protected function normalizeAuthority(mixed $authority): ?string
+    protected function normalizePermissionId(mixed $permissionId): ?int
     {
-        if (is_array($authority)) {
-            $authority = $authority[0] ?? null;
-        } elseif (is_string($authority) && str_starts_with(trim($authority), '[')) {
-            $decoded = json_decode($authority, true);
-            $authority = is_array($decoded) ? ($decoded[0] ?? null) : $authority;
-        }
-
-        if (!is_string($authority)) {
+        if ($permissionId === null || $permissionId === '' || $permissionId === 0 || $permissionId === '0') {
             return null;
         }
 
-        $authority = trim($authority);
+        $id = (int) $permissionId;
 
-        return $authority === '' ? null : $authority;
+        if ($id <= 0) {
+            return null;
+        }
+
+        if (! SystemPermission::query()->whereKey($id)->exists()) {
+            throw new BusinessException('绑定的权限点不存在');
+        }
+
+        return $id;
     }
 
     /**
@@ -398,12 +404,10 @@ class MenuLogic
             throw new BusinessException('该菜单存在子菜单或按钮权限，无法删除');
         }
 
-        // 删除角色对该菜单的授权，避免残留孤立关联
-        SystemRoleMenu::query()->where('menu_id', $id)->delete();
 
         $menu->delete();
 
-        $this->permissionLogic->flushAllUserCache();
+        $this->permissionLogic->flushAllCache();
     }
 
     /**
@@ -425,6 +429,6 @@ class MenuLogic
         $menu->save();
 
         // 停用按钮会影响权限判定，立即失效缓存
-        $this->permissionLogic->flushAllUserCache();
+        $this->permissionLogic->flushAllCache();
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Model;
 
 use Carbon\Carbon;
+use Hyperf\Database\Model\SoftDeletes;
 
 /**
  * 预存签名图片库.
@@ -17,7 +18,7 @@ use Carbon\Carbon;
  * @property string $image_url 签名图片地址
  * @property string $remark 备注
  * @property int $sort 排序
- * @property int $status 状态：0-禁用，1-启用
+ * @property null|\Carbon\Carbon $deleted_at 软删除时间
  * @property int $created_by 创建人ID
  * @property int $updated_by 更新人ID
  * @property Carbon $created_at 创建时间
@@ -25,9 +26,7 @@ use Carbon\Carbon;
  */
 class Signature extends Model
 {
-    public const STATUS_DISABLED = 0;
-
-    public const STATUS_ENABLED = 1;
+    use SoftDeletes;
 
     /**
      * The table associated with the model.
@@ -37,10 +36,10 @@ class Signature extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'name', 'image_url', 'remark', 'sort', 'status', 'created_by', 'updated_by', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'name', 'image_url', 'remark', 'sort', 'created_by', 'updated_by', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.
      */
-    protected array $casts = ['id' => 'integer', 'sort' => 'integer', 'status' => 'integer', 'created_by' => 'integer', 'updated_by' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+    protected array $casts = ['id' => 'integer', 'sort' => 'integer', 'created_by' => 'integer', 'updated_by' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime', 'deleted_at' => 'datetime'];
 }

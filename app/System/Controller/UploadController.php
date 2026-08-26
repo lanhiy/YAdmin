@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\System\Controller;
 
+use App\Annotation\Permission;
+use App\Annotation\WithoutPermission;
+use App\Annotation\PermissionGroup;
 use App\Controller\AbstractController;
 use App\System\Logic\UploadLogic;
 use Hyperf\Di\Annotation\Inject;
@@ -11,6 +14,7 @@ use Hyperf\HttpMessage\Stream\SwooleStream;
 use Hyperf\HttpServer\Contract\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
+#[PermissionGroup(name: '文件上传', sort: 14)]
 class UploadController extends AbstractController
 {
     #[Inject]
@@ -21,6 +25,7 @@ class UploadController extends AbstractController
      *
      * 需要登录，前端 FormData 字段名为 file，可选 dir 指定业务子目录。
      */
+    #[Permission('system:upload:image', '上传图片', sort: 1)]
     public function image(RequestInterface $request): ResponseInterface
     {
         $file = $request->file('file');
@@ -38,6 +43,7 @@ class UploadController extends AbstractController
      * 上传目录里只有签名图片这类需要公开展示的静态资源，
      * 路径穿越已在 UploadLogic::resolvePath 中拦截。
      */
+    #[WithoutPermission('图片读取，img 标签无法携带 Authorization 头')]
     public function show(string $path): ResponseInterface
     {
         $absolutePath = $this->logic->resolvePath($path);

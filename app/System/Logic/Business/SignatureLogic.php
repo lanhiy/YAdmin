@@ -21,9 +21,6 @@ class SignatureLogic
         if (! empty($params['name']) && trim((string) $params['name']) !== '') {
             $query->where('name', 'like', '%' . $params['name'] . '%');
         }
-        if (isset($params['status']) && $params['status'] !== '') {
-            $query->where('status', (int) $params['status']);
-        }
 
         $query->orderBy('sort', 'asc')->orderBy('id', 'desc');
 
@@ -67,7 +64,6 @@ class SignatureLogic
     public function getEnabledSignatures(): array
     {
         return Signature::query()
-            ->where('status', Signature::STATUS_ENABLED)
             ->where('image_url', '<>', '')
             ->orderBy('sort', 'asc')
             ->orderBy('id', 'desc')
@@ -123,19 +119,6 @@ class SignatureLogic
         $this->findOrFail($id)->delete();
     }
 
-    /**
-     * 修改签名状态.
-     */
-    public function changeStatus(int $id, int $status): void
-    {
-        if (! in_array($status, [Signature::STATUS_DISABLED, Signature::STATUS_ENABLED], true)) {
-            throw new BusinessException('状态值不合法');
-        }
-
-        $signature = $this->findOrFail($id);
-        $signature->status = $status;
-        $signature->save();
-    }
 
     /**
      * 取签名实例，不存在抛异常.

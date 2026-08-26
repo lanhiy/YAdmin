@@ -9,9 +9,9 @@ use Hyperf\Validation\Request\FormRequest;
 class SignatureRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['name', 'image_url', 'remark', 'sort', 'status'],
-        'update' => ['name', 'image_url', 'remark', 'sort', 'status'],
-        'changeStatus' => ['id', 'status'],
+        'save' => ['name', 'image_url', 'remark', 'sort'],
+        'update' => ['name', 'image_url', 'remark', 'sort'],
+        'changeStatus' => ['id'],
     ];
 
     /**
@@ -25,7 +25,6 @@ class SignatureRequest extends FormRequest
             'image_url' => 'required|string|max:255',
             'remark' => 'string|max:500',
             'sort' => 'integer',
-            'status' => 'required|integer|in:0,1',
         ];
     }
 
@@ -40,7 +39,6 @@ class SignatureRequest extends FormRequest
             'image_url' => '签名图片',
             'remark' => '备注',
             'sort' => '排序',
-            'status' => '状态',
         ];
     }
 
@@ -54,8 +52,6 @@ class SignatureRequest extends FormRequest
             'name.max' => '签名人姓名最多50个字符',
             'image_url.required' => '请上传签名图片',
             'image_url.max' => '签名图片地址最多255个字符',
-            'status.required' => '请选择状态',
-            'status.in' => '状态值不合法',
         ];
     }
 

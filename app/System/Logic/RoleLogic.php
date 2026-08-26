@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\System\Logic;
 
 use App\Exception\BusinessException;
-use App\Model\SystemRole;
-use App\Model\SystemRoleMenu;
 use App\Model\SystemAdminRole;
+use App\Model\SystemMenu;
+use App\Model\SystemPermission;
+use App\Model\SystemRole;
 use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 
@@ -17,18 +18,16 @@ class RoleLogic
     protected PermissionLogic $permissionLogic;
 
     /**
-     * 获取角色列表（分页）
+     * 获取角色列表（分页）.
      */
     public function getRoleList(array $params = []): array
     {
         $query = SystemRole::query();
 
-        // 搜索条件
-        // 搜索条件 - 只在值非空时才添加条件
-        if (!empty($params['name']) && trim($params['name']) !== '') {
+        if (! empty($params['name']) && trim($params['name']) !== '') {
             $query->where('name', 'like', '%' . $params['name'] . '%');
         }
-        if (!empty($params['code']) && trim($params['code']) !== '') {
+        if (! empty($params['code']) && trim($params['code']) !== '') {
             $query->where('code', 'like', '%' . $params['code'] . '%');
         }
         if (isset($params['status']) && $params['status'] !== '') {
@@ -37,20 +36,17 @@ class RoleLogic
 
         $query->orderBy('sort', 'asc')->orderBy('id', 'desc');
 
-        // 分页
-        $page = (int)($params['page'] ?? 1);
-        $pageSize = (int)($params['page_size'] ?? 20);
+        $page = (int) ($params['page'] ?? 1);
+        $pageSize = (int) ($params['page_size'] ?? 20);
 
         $total = $query->count();
         $list = $query->forPage($page, $pageSize)->get()->toArray();
 
-        // 加载菜单权限
+        // 批量取授权，避免 N+1
+        $grants = $this->loadRoleGrants(array_column($list, 'id'));
+
         foreach ($list as &$item) {
-            $menuIds = SystemRoleMenu::query()
-                ->where('role_id', $item['id'])
-                ->pluck('menu_id')
-                ->toArray();
-            $item['menu_ids'] = $menuIds;
+            $item = $this->appendGrants($item, $grants[$item['id']] ?? []);
         }
 
         return [
@@ -62,7 +58,7 @@ class RoleLogic
     }
 
     /**
-     * 获取所有角色（用于下拉选择）
+     * 获取所有启用角色（下拉选择用）.
      */
     public function getAllRoles(): array
     {
@@ -74,75 +70,61 @@ class RoleLogic
     }
 
     /**
-     * 根据ID获取角色
+     * 根据ID获取角色（含授权明细）.
      */
     public function getRoleById(int $id): array
     {
-        $role = SystemRole::query()
-            ->find($id);
+        $role = SystemRole::query()->find($id);
 
-        if (!$role instanceof SystemRole) {
+        if (! $role instanceof SystemRole) {
             throw new BusinessException('角色不存在');
         }
 
-        $data = $role->toArray();
+        $grants = $this->loadRoleGrants([$id]);
 
-        // 获取菜单权限
-        $menuIds = SystemRoleMenu::query()
-            ->where('role_id', $id)
-            ->pluck('menu_id')
-            ->toArray();
-        $data['menu_ids'] = $menuIds;
-
-        return $data;
+        return $this->appendGrants($role->toArray(), $grants[$id] ?? []);
     }
 
     /**
-     * 创建角色
+     * 创建角色.
      */
     public function createRole(array $data): array
     {
-        // 检查编码是否重复
-        $exists = SystemRole::query()
-            ->where('code', $data['code'])
-            ->exists();
+        $exists = SystemRole::query()->where('code', $data['code'])->exists();
 
         if ($exists) {
             throw new BusinessException('角色编码已存在');
         }
 
-        $menuIds = $data['menu_ids'] ?? [];
-        unset($data['menu_ids']);
+        $permissionIds = $this->resolvePermissionIds($data);
+        unset($data['permission_ids'], $data['menu_ids'], $data['is_super']);
 
-        // 设置默认值
         $data['sort'] = $data['sort'] ?? 0;
         $data['status'] = $data['status'] ?? SystemRole::STATUS_ENABLED;
 
-        return Db::transaction(function () use ($data, $menuIds) {
+        return Db::transaction(function () use ($data, $permissionIds) {
             $role = SystemRole::query()->create($data);
 
-            // 保存菜单权限
-            if (!empty($menuIds)) {
-                $this->syncRoleMenus($role->id, $menuIds);
-            }
+            $this->syncRolePermissions((int) $role->id, $permissionIds);
 
-            return $role->toArray();
+            return $this->appendGrants(
+                $role->toArray(),
+                $this->loadRoleGrants([(int) $role->id])[(int) $role->id] ?? [],
+            );
         });
     }
 
     /**
-     * 更新角色
+     * 更新角色.
      */
     public function updateRole(int $id, array $data): array
     {
-        $role = SystemRole::query()
-            ->find($id);
+        $role = SystemRole::query()->find($id);
 
-        if (!$role instanceof SystemRole) {
+        if (! $role instanceof SystemRole) {
             throw new BusinessException('角色不存在');
         }
 
-        // 检查编码是否重复
         $exists = SystemRole::query()
             ->where('code', $data['code'])
             ->where('id', '!=', $id)
@@ -152,101 +134,245 @@ class RoleLogic
             throw new BusinessException('角色编码已存在');
         }
 
-        $menuIds = $data['menu_ids'] ?? [];
-        unset($data['menu_ids']);
+        // 超管角色的授权面无意义（本身即全权），禁止改动以免误导
+        if ($role->isSuper() && (isset($data['permission_ids']) || isset($data['menu_ids']))) {
+            throw new BusinessException('超级管理员角色拥有全部权限，无需也不可单独授权');
+        }
 
-        return Db::transaction(function () use ($role, $data, $menuIds) {
+        $permissionIds = $this->resolvePermissionIds($data);
+        $hasGrantInput = array_key_exists('permission_ids', $data) || array_key_exists('menu_ids', $data);
+
+        // is_super 不允许通过接口变更，避免自行提权
+        unset($data['permission_ids'], $data['menu_ids'], $data['is_super']);
+
+        return Db::transaction(function () use ($role, $data, $permissionIds, $hasGrantInput) {
             $role->update($data);
 
-            // 更新菜单权限
-            $this->syncRoleMenus($role->id, $menuIds);
+            // 未提交授权字段时不动既有授权，避免编辑基础信息意外清空权限
+            if ($hasGrantInput) {
+                $this->syncRolePermissions((int) $role->id, $permissionIds);
+            }
 
-            return $role->toArray();
+            $this->permissionLogic->flushRoleCache((int) $role->id);
+
+            return $this->appendGrants(
+                $role->toArray(),
+                $this->loadRoleGrants([(int) $role->id])[(int) $role->id] ?? [],
+            );
         });
     }
 
     /**
-     * 删除角色
+     * 删除角色.
      */
     public function deleteRole(int $id): void
     {
-        $role = SystemRole::query()
-            ->find($id);
+        $role = SystemRole::query()->find($id);
 
-        if (!$role instanceof SystemRole) {
+        if (! $role instanceof SystemRole) {
             throw new BusinessException('角色不存在');
         }
 
-        // 检查是否有用户关联
-        $adminCount = SystemAdminRole::query()
-            ->where('role_id', $id)
-            ->count();
+        if ($role->isSuper()) {
+            throw new BusinessException('超级管理员角色不可删除');
+        }
+
+        $adminCount = SystemAdminRole::query()->where('role_id', $id)->count();
 
         if ($adminCount > 0) {
             throw new BusinessException('该角色已分配给用户，无法删除');
         }
 
-        Db::transaction(function () use ($role) {
-            // 软删除
-            $role->deleted_at = date('Y-m-d H:i:s');
-            $role->save();
-
-            // 删除角色菜单关联
-            SystemRoleMenu::query()->where('role_id', $role->id)->delete();
+        Db::transaction(function () use ($role): void {
+            Db::table('system_role_permission')->where('role_id', $role->id)->delete();
+            $role->delete();
         });
 
         $this->permissionLogic->flushRoleCache($id);
     }
 
     /**
-     * 修改角色状态
+     * 修改角色状态.
      */
     public function changeStatus(int $id, int $status): void
     {
-        $role = SystemRole::query()
-            ->find($id);
+        $role = SystemRole::query()->find($id);
 
-        if (!$role instanceof SystemRole) {
+        if (! $role instanceof SystemRole) {
             throw new BusinessException('角色不存在');
         }
 
-        if (!in_array($status, [SystemRole::STATUS_DISABLED, SystemRole::STATUS_ENABLED])) {
+        if (! in_array($status, [SystemRole::STATUS_DISABLED, SystemRole::STATUS_ENABLED], true)) {
             throw new BusinessException('状态值不合法');
+        }
+
+        if ($role->isSuper() && $status === SystemRole::STATUS_DISABLED) {
+            throw new BusinessException('超级管理员角色不可禁用');
         }
 
         $role->status = $status;
         $role->save();
 
-        // 角色停用/启用会影响其下用户的权限，立即失效缓存
         $this->permissionLogic->flushRoleCache($id);
     }
 
     /**
-     * 同步角色菜单权限
+     * 解析前端提交的授权.
      *
-     * 角色的接口权限直接由这里的菜单关联派生（按钮菜单上的 authority），
-     * 不再额外维护权限表，因此只需要落 system_role_menu 并清缓存。
+     * 主契约是 permission_ids；menu_ids 是过渡兼容：前端角色表单尚未改造，
+     * 仍在提交菜单ID，这里映射为对应的权限点ID。前端切换后可移除。
+     *
+     * @return int[]
      */
-    protected function syncRoleMenus(int $roleId, array $menuIds): void
+    private function resolvePermissionIds(array $data): array
     {
-        // 删除旧的关联
-        SystemRoleMenu::query()->where('role_id', $roleId)->delete();
-
-        // 添加新的关联
-        if (!empty($menuIds)) {
-            $data = [];
-            foreach ($menuIds as $menuId) {
-                $data[] = [
-                    'role_id' => $roleId,
-                    'menu_id' => $menuId,
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s'),
-                ];
-            }
-            SystemRoleMenu::query()->insert($data);
+        if (array_key_exists('permission_ids', $data)) {
+            return $this->normalizeIds($data['permission_ids']);
         }
 
-        // 权限变更立即生效
+        if (! array_key_exists('menu_ids', $data)) {
+            return [];
+        }
+
+        $menuIds = $this->normalizeIds($data['menu_ids']);
+
+        if ($menuIds === []) {
+            return [];
+        }
+
+        // 菜单绑定的权限点即该页面的访问权限
+        return SystemMenu::query()
+            ->whereIn('id', $menuIds)
+            ->whereNotNull('permission_id')
+            ->pluck('permission_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return int[]
+     */
+    private function normalizeIds(mixed $ids): array
+    {
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn ($id): int => (int) $id, $ids),
+            static fn (int $id): bool => $id > 0,
+        )));
+    }
+
+    /**
+     * 批量读取角色授权.
+     *
+     * @param int[] $roleIds
+     * @return array<int, array{permission_ids: int[], menu_ids: int[]}>
+     */
+    private function loadRoleGrants(array $roleIds): array
+    {
+        if ($roleIds === []) {
+            return [];
+        }
+
+        $rows = Db::table('system_role_permission')
+            ->whereIn('role_id', $roleIds)
+            ->get(['role_id', 'permission_id']);
+
+        $result = [];
+        $allPermissionIds = [];
+
+        foreach ($rows as $row) {
+            $result[(int) $row->role_id]['permission_ids'][] = (int) $row->permission_id;
+            $allPermissionIds[] = (int) $row->permission_id;
+        }
+
+        // 反向推导菜单ID，供尚未改造的前端表单回显勾选状态
+        $menuMap = [];
+        if ($allPermissionIds !== []) {
+            foreach (SystemMenu::query()
+                ->whereIn('permission_id', array_unique($allPermissionIds))
+                ->get(['id', 'permission_id']) as $menu) {
+                $menuMap[(int) $menu->permission_id][] = (int) $menu->id;
+            }
+        }
+
+        foreach ($result as $roleId => $grant) {
+            $menuIds = [];
+            foreach ($grant['permission_ids'] as $permissionId) {
+                foreach ($menuMap[$permissionId] ?? [] as $menuId) {
+                    $menuIds[] = $menuId;
+                }
+            }
+            $result[$roleId]['menu_ids'] = array_values(array_unique($menuIds));
+        }
+
+        return $result;
+    }
+
+    /**
+     * 把授权明细附加到角色数据上.
+     */
+    private function appendGrants(array $role, array $grant): array
+    {
+        $isSuper = (int) ($role['is_super'] ?? 0) === SystemRole::IS_SUPER_YES;
+
+        // 超管角色回显全部权限，避免前端表单显示为「未授权」
+        if ($isSuper) {
+            $role['permission_ids'] = SystemPermission::query()
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+            $role['menu_ids'] = SystemMenu::query()
+                ->whereNotNull('permission_id')
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+
+            return $role;
+        }
+
+        $role['permission_ids'] = $grant['permission_ids'] ?? [];
+        $role['menu_ids'] = $grant['menu_ids'] ?? [];
+
+        return $role;
+    }
+
+    /**
+     * 同步角色授权.
+     *
+     * @param int[] $permissionIds
+     */
+    private function syncRolePermissions(int $roleId, array $permissionIds): void
+    {
+        Db::table('system_role_permission')->where('role_id', $roleId)->delete();
+
+        if ($permissionIds !== []) {
+            // 过滤不存在的权限点，防止脏ID写入
+            $validIds = SystemPermission::query()
+                ->whereIn('id', $permissionIds)
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+
+            $now = date('Y-m-d H:i:s');
+            $rows = array_map(
+                static fn (int $permissionId): array => [
+                    'role_id' => $roleId,
+                    'permission_id' => $permissionId,
+                    'created_at' => $now,
+                ],
+                $validIds,
+            );
+
+            if ($rows !== []) {
+                Db::table('system_role_permission')->insert($rows);
+            }
+        }
+
         $this->permissionLogic->flushRoleCache($roleId);
     }
 }

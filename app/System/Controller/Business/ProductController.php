@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\System\Controller\Business;
 
+use App\Annotation\Permission;
+use App\Annotation\PermissionGroup;
 use App\Controller\AbstractController;
 use App\System\Logic\Business\ProductLogic;
 use App\System\Request\Business\ProductRequest;
@@ -12,6 +14,7 @@ use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\Validation\Annotation\Scene;
 use Psr\Http\Message\ResponseInterface;
 
+#[PermissionGroup(name: '产品管理', sort: 20)]
 class ProductController extends AbstractController
 {
     #[Inject]
@@ -20,6 +23,7 @@ class ProductController extends AbstractController
     /**
      * 获取产品列表（分页）.
      */
+    #[Permission('system:product:list', '查看列表', sort: 1)]
     public function list(RequestInterface $request): ResponseInterface
     {
         return $this->success($this->logic->getProductList($request->all()));
@@ -28,6 +32,7 @@ class ProductController extends AbstractController
     /**
      * 产品下拉选项.
      */
+    #[Permission('system:product:options', '下拉选项', sort: 2)]
     public function options(): ResponseInterface
     {
         return $this->success($this->logic->getProductOptions());
@@ -36,6 +41,7 @@ class ProductController extends AbstractController
     /**
      * 获取产品详情（含三张子表）.
      */
+    #[Permission('system:product:show', '查看详情', sort: 3)]
     public function show(int $id): ResponseInterface
     {
         return $this->success($this->logic->getProductById($id));
@@ -45,6 +51,7 @@ class ProductController extends AbstractController
      * 新增产品.
      */
     #[Scene(scene: 'save')]
+    #[Permission('system:product:add', '新增', sort: 4)]
     public function store(ProductRequest $request): ResponseInterface
     {
         $adminId = (int) $request->getAttribute('admin_id');
@@ -57,6 +64,7 @@ class ProductController extends AbstractController
      * 更新产品.
      */
     #[Scene(scene: 'update')]
+    #[Permission('system:product:edit', '编辑', sort: 5)]
     public function update(int $id, ProductRequest $request): ResponseInterface
     {
         $adminId = (int) $request->getAttribute('admin_id');
@@ -68,6 +76,7 @@ class ProductController extends AbstractController
     /**
      * 删除产品（级联删除三张子表数据）.
      */
+    #[Permission('system:product:delete', '删除', sort: 6)]
     public function destroy(int $id): ResponseInterface
     {
         $this->logic->deleteProduct($id);
@@ -75,15 +84,4 @@ class ProductController extends AbstractController
         return $this->success(null, '删除成功');
     }
 
-    /**
-     * 修改产品状态.
-     */
-    #[Scene(scene: 'changeStatus')]
-    public function changeStatus(ProductRequest $request): ResponseInterface
-    {
-        $data = $request->validated();
-        $this->logic->changeStatus((int) $data['id'], (int) $data['status']);
-
-        return $this->success(null, '状态修改成功');
-    }
 }

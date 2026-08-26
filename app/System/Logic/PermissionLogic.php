@@ -4,67 +4,109 @@ declare(strict_types=1);
 
 namespace App\System\Logic;
 
+use App\Model\SystemAdmin;
 use App\Model\SystemAdminRole;
-use App\Model\SystemMenu;
+use App\Model\SystemPermission;
 use App\Model\SystemRole;
-use App\Model\SystemRoleMenu;
-use App\Model\SystemRoutePermission;
+use Hyperf\DbConnection\Db;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\Redis\Redis;
+use Throwable;
 
 /**
- * 权限查询与校验中心（取代原先的 Casbin 实现）.
+ * 鉴权权威：所有「谁能做什么」的判定都出自这里.
  *
- * 权限数据没有独立存储：用户权限 = 其角色勾选的按钮菜单上的 authority。
- * 唯一新增的数据是「路由 -> 权限标识」映射（system_route_permission），
- * 因为请求路径与权限标识的对应关系在原有表结构中不存在。
+ * 数据模型：
+ *   admin --< admin_role >-- role --< role_permission >-- permission
+ *   menu.permission_id -> permission（菜单可见性由权限派生）
+ *
+ * 超管判定两条独立通路（任一成立即放行全部权限）：
+ *   1. admin_id === SUPER_ADMIN_ID（硬编码兜底，保证永不被锁死）
+ *   2. 持有任一 is_super=1 且启用的角色
+ *
+ * 用标志列而非匹配 code='superadmin'：按字符串匹配的话，
+ * 在后台把角色名改掉就会静默丢失超管身份。
  */
 class PermissionLogic
 {
     /**
-     * 超级管理员账号ID（拥有全部权限，不做校验）.
+     * 内置超级管理员账号ID.
+     *
+     * 硬编码兜底：即使角色配置被改坏，该账号仍可登录并修复权限，
+     * 避免整个系统被锁死。
      */
     public const SUPER_ADMIN_ID = 1;
 
     /**
-     * 用户权限码缓存时长（秒）.
+     * 身份快照缓存时长（秒）.
      */
-    private const USER_CACHE_TTL = 1800;
+    private const IDENTITY_TTL = 1800;
 
     /**
-     * 路由映射缓存时长（秒）.
+     * 身份快照缓存键前缀.
      */
-    private const ROUTE_CACHE_TTL = 3600;
-
-    private const CACHE_KEY_PERMISSIONS = 'user:permissions:';
-
-    private const CACHE_KEY_ROLES = 'user:roles:';
-
-    private const CACHE_KEY_ROUTE_MAP = 'system:route_permission_map';
+    private const CACHE_KEY_IDENTITY = 'rbac:identity:';
 
     #[Inject]
     protected Redis $redis;
+
+    /**
+     * 读取管理员鉴权身份快照（带缓存）.
+     */
+    public function identity(int $adminId): AdminIdentity
+    {
+        $cacheKey = self::CACHE_KEY_IDENTITY . $adminId;
+
+        try {
+            $cached = $this->redis->get($cacheKey);
+
+            if (is_string($cached) && $cached !== '') {
+                $decoded = json_decode($cached, true);
+
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    return AdminIdentity::fromArray($adminId, $decoded);
+                }
+            }
+        } catch (Throwable) {
+            // 缓存不可用时退化为直接查库，不影响鉴权可用性
+            return $this->queryIdentity($adminId);
+        }
+
+        $identity = $this->queryIdentity($adminId);
+
+        try {
+            $this->redis->setex($cacheKey, self::IDENTITY_TTL, json_encode($identity->toArray()));
+        } catch (Throwable) {
+            // 写缓存失败不影响本次鉴权结果
+        }
+
+        return $identity;
+    }
 
     /**
      * 判断是否超级管理员.
      */
     public function isSuperAdmin(int $adminId): bool
     {
-        return $adminId === self::SUPER_ADMIN_ID;
+        return $this->identity($adminId)->isSuper;
     }
 
     /**
-     * 获取用户拥有的权限标识列表.
+     * 判断用户是否拥有指定权限.
+     */
+    public function hasPermission(int $adminId, string $code): bool
+    {
+        return $this->identity($adminId)->can($code);
+    }
+
+    /**
+     * 获取用户拥有的权限标识列表（前端按钮级权限用）.
      *
      * @return string[]
      */
     public function getUserPermissionCodes(int $adminId): array
     {
-        return $this->remember(
-            self::CACHE_KEY_PERMISSIONS . $adminId,
-            self::USER_CACHE_TTL,
-            fn (): array => $this->queryUserPermissionCodes($adminId),
-        );
+        return $this->identity($adminId)->permissionCodes;
     }
 
     /**
@@ -74,59 +116,23 @@ class PermissionLogic
      */
     public function getUserRoleCodes(int $adminId): array
     {
-        return $this->remember(
-            self::CACHE_KEY_ROLES . $adminId,
-            self::USER_CACHE_TTL,
-            fn (): array => $this->queryUserRoleCodes($adminId),
-        );
+        return $this->identity($adminId)->roleCodes;
     }
 
     /**
-     * 判断用户是否拥有指定权限标识.
-     */
-    public function hasPermission(int $adminId, string $code): bool
-    {
-        if ($this->isSuperAdmin($adminId)) {
-            return true;
-        }
-
-        return in_array($code, $this->getUserPermissionCodes($adminId), true);
-    }
-
-    /**
-     * 解析请求对应的权限要求.
-     *
-     * @return null|array{authority: null|string, is_public: bool} null 表示该路由未登记
-     */
-    public function resolveRoute(string $path, string $method): ?array
-    {
-        $map = $this->getRouteMap();
-        $method = strtoupper($method);
-
-        // 先精确匹配，再用占位符归一化后匹配
-        foreach ([$path, $this->normalizePath($path)] as $candidate) {
-            $hit = $map[$method . ' ' . $candidate] ?? null;
-            if ($hit !== null) {
-                return $hit;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * 清除指定用户的权限缓存.
+     * 清除指定用户的身份缓存.
      */
     public function flushAdminCache(int $adminId): void
     {
-        $this->redis->del(
-            self::CACHE_KEY_PERMISSIONS . $adminId,
-            self::CACHE_KEY_ROLES . $adminId,
-        );
+        try {
+            $this->redis->del(self::CACHE_KEY_IDENTITY . $adminId);
+        } catch (Throwable) {
+            // 缓存清理失败最多延迟 IDENTITY_TTL 生效，不阻断业务
+        }
     }
 
     /**
-     * 清除某角色下所有用户的权限缓存（角色权限变更后立即生效）.
+     * 清除某角色下所有用户的身份缓存（角色授权变更后立即生效）.
      */
     public function flushRoleCache(int $roleId): void
     {
@@ -141,155 +147,100 @@ class PermissionLogic
     }
 
     /**
-     * 清除所有用户的权限缓存（菜单/按钮权限本身变更时使用）.
+     * 清除全部用户的身份缓存（权限点本身变更时使用）.
      */
-    public function flushAllUserCache(): void
+    public function flushAllCache(): void
     {
         $adminIds = SystemAdminRole::query()->distinct()->pluck('admin_id')->all();
 
         foreach ($adminIds as $adminId) {
             $this->flushAdminCache((int) $adminId);
         }
+
+        // 内置超管可能没有任何角色关联，需要单独清理
+        $this->flushAdminCache(self::SUPER_ADMIN_ID);
     }
 
     /**
-     * 清除路由映射缓存.
+     * 查询管理员身份：账号状态、超管标志、角色、权限一次取全.
      */
-    public function flushRouteMapCache(): void
+    private function queryIdentity(int $adminId): AdminIdentity
     {
-        $this->redis->del(self::CACHE_KEY_ROUTE_MAP);
-    }
+        $admin = SystemAdmin::query()->find($adminId, ['id', 'status']);
 
-    /**
-     * 读取「METHOD PATH => 权限要求」映射表.
-     *
-     * @return array<string, array{authority: null|string, is_public: bool}>
-     */
-    private function getRouteMap(): array
-    {
-        $cached = $this->redis->get(self::CACHE_KEY_ROUTE_MAP);
+        if (! $admin instanceof SystemAdmin) {
+            return AdminIdentity::notFound($adminId);
+        }
 
-        if (is_string($cached) && $cached !== '') {
-            $decoded = json_decode($cached, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                return $decoded;
+        $enabled = $admin->status === SystemAdmin::STATUS_ENABLED;
+
+        // 启用状态的角色：编码 + 超管标志
+        $roles = SystemAdminRole::query()
+            ->where('system_admin_role.admin_id', $adminId)
+            ->join('system_role', 'system_role.id', '=', 'system_admin_role.role_id')
+            ->where('system_role.status', SystemRole::STATUS_ENABLED)
+            ->get(['system_role.id', 'system_role.code', 'system_role.is_super']);
+
+        $roleCodes = [];
+        $roleIds = [];
+        $isSuperByRole = false;
+
+        foreach ($roles as $role) {
+            $roleCodes[] = (string) $role->code;
+            $roleIds[] = (int) $role->id;
+
+            if ((int) $role->is_super === SystemRole::IS_SUPER_YES) {
+                $isSuperByRole = true;
             }
         }
 
-        $map = [];
-        foreach (SystemRoutePermission::query()->get(['method', 'path', 'authority', 'is_public']) as $route) {
-            $map[strtoupper($route->method) . ' ' . $route->path] = [
-                'authority' => $route->authority,
-                'is_public' => $route->is_public === 1,
-            ];
-        }
+        // 两条独立通路：内置超管ID 或 持有超管角色
+        $isSuper = $adminId === self::SUPER_ADMIN_ID || $isSuperByRole;
 
-        $this->redis->setex(self::CACHE_KEY_ROUTE_MAP, self::ROUTE_CACHE_TTL, json_encode($map));
-
-        return $map;
+        return new AdminIdentity(
+            $adminId,
+            true,
+            $enabled,
+            $isSuper,
+            array_values(array_unique($roleCodes)),
+            $isSuper ? $this->queryAllPermissionCodes() : $this->queryRolePermissionCodes($roleIds),
+        );
     }
 
     /**
-     * 把请求路径中的动态段替换为占位符，如 /system/role/12 => /system/role/{id}.
-     */
-    private function normalizePath(string $path): string
-    {
-        $normalized = preg_replace('#/\d+(?=/|$)#', '/{id}', $path) ?? $path;
-
-        return preg_replace('#(/type)/[^/]+$#', '$1/{type}', $normalized) ?? $normalized;
-    }
-
-    /**
-     * 带缓存读取字符串数组.
+     * 查询角色被授予的权限标识.
      *
-     * @param callable(): string[] $resolver
+     * @param int[] $roleIds
      * @return string[]
      */
-    private function remember(string $cacheKey, int $ttl, callable $resolver): array
+    private function queryRolePermissionCodes(array $roleIds): array
     {
-        $cached = $this->redis->get($cacheKey);
-
-        if (is_string($cached) && $cached !== '') {
-            $decoded = json_decode($cached, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                return $decoded;
-            }
-        }
-
-        $value = $resolver();
-        $this->redis->setex($cacheKey, $ttl, json_encode($value));
-
-        return $value;
-    }
-
-    /**
-     * 查询用户权限标识：角色勾选的启用按钮菜单上的 authority.
-     *
-     * @return string[]
-     */
-    private function queryUserPermissionCodes(int $adminId): array
-    {
-        if ($this->isSuperAdmin($adminId)) {
-            return SystemMenu::query()
-                ->where('type', SystemMenu::TYPE_BUTTON)
-                ->where('status', SystemMenu::STATUS_ENABLED)
-                ->whereNotNull('authority')
-                ->where('authority', '<>', '')
-                ->pluck('authority')
-                ->unique()
-                ->values()
-                ->all();
-        }
-
-        $roleIds = $this->queryEnabledRoleIds($adminId);
-
         if ($roleIds === []) {
             return [];
         }
 
-        return SystemRoleMenu::query()
-            ->whereIn('system_role_menu.role_id', $roleIds)
-            ->join('system_menu', 'system_menu.id', '=', 'system_role_menu.menu_id')
-            ->where('system_menu.type', SystemMenu::TYPE_BUTTON)
-            ->where('system_menu.status', SystemMenu::STATUS_ENABLED)
-            ->whereNotNull('system_menu.authority')
-            ->where('system_menu.authority', '<>', '')
-            ->pluck('system_menu.authority')
-            ->unique()
-            ->values()
+        return Db::table('system_role_permission')
+            ->whereIn('system_role_permission.role_id', $roleIds)
+            ->join('system_permission', 'system_permission.id', '=', 'system_role_permission.permission_id')
+            ->distinct()
+            ->pluck('system_permission.code')
+            ->map(static fn ($code): string => (string) $code)
             ->all();
     }
 
     /**
-     * 查询用户角色编码.
+     * 超管的权限码集合：全部权限点.
+     *
+     * 超管的鉴权判定本身不依赖这个列表（can() 直接放行），
+     * 查出来只为让前端按钮级权限（access-codes）拿到完整集合。
      *
      * @return string[]
      */
-    private function queryUserRoleCodes(int $adminId): array
+    private function queryAllPermissionCodes(): array
     {
-        return SystemAdminRole::query()
-            ->where('system_admin_role.admin_id', $adminId)
-            ->join('system_role', 'system_role.id', '=', 'system_admin_role.role_id')
-            ->where('system_role.status', SystemRole::STATUS_ENABLED)
-            ->pluck('system_role.code')
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    /**
-     * 查询用户启用状态的角色ID.
-     *
-     * @return int[]
-     */
-    private function queryEnabledRoleIds(int $adminId): array
-    {
-        return SystemAdminRole::query()
-            ->where('system_admin_role.admin_id', $adminId)
-            ->join('system_role', 'system_role.id', '=', 'system_admin_role.role_id')
-            ->where('system_role.status', SystemRole::STATUS_ENABLED)
-            ->pluck('system_role.id')
-            ->map(static fn ($id): int => (int) $id)
+        return SystemPermission::query()
+            ->pluck('code')
+            ->map(static fn ($code): string => (string) $code)
             ->all();
     }
 }

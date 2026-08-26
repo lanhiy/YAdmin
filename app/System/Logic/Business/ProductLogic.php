@@ -39,9 +39,6 @@ class ProductLogic
         if (! empty($params['unit_name']) && trim((string) $params['unit_name']) !== '') {
             $query->where('unit_name', 'like', '%' . $params['unit_name'] . '%');
         }
-        if (isset($params['status']) && $params['status'] !== '') {
-            $query->where('status', (int) $params['status']);
-        }
 
         $query->orderBy('sort', 'asc')->orderBy('id', 'desc');
 
@@ -65,7 +62,6 @@ class ProductLogic
     public function getProductOptions(): array
     {
         return Product::query()
-            ->where('status', Product::STATUS_ENABLED)
             ->orderBy('sort', 'asc')
             ->orderBy('id', 'desc')
             ->get(['id', 'instrument_name', 'instrument_no', 'model'])
@@ -131,6 +127,8 @@ class ProductLogic
     {
         $product = $this->findOrFail($id);
 
+        // 三张子表与产品都启用了软删除，这里的 delete() 均为标记删除，
+        // 数据可追溯；子表的全局作用域会自动过滤已删除记录。
         Db::transaction(static function () use ($product, $id) {
             TestReport::query()->where('product_id', $id)->delete();
             VerificationCert::query()->where('product_id', $id)->delete();
@@ -139,19 +137,6 @@ class ProductLogic
         });
     }
 
-    /**
-     * 修改产品状态.
-     */
-    public function changeStatus(int $id, int $status): void
-    {
-        if (! in_array($status, [Product::STATUS_DISABLED, Product::STATUS_ENABLED], true)) {
-            throw new BusinessException('状态值不合法');
-        }
-
-        $product = $this->findOrFail($id);
-        $product->status = $status;
-        $product->save();
-    }
 
     /**
      * 批量补充创建人/更新人昵称与三张子表的录入标记.

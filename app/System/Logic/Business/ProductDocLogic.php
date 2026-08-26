@@ -106,19 +106,6 @@ abstract class ProductDocLogic
         $this->findOrFail($id)->delete();
     }
 
-    /**
-     * 修改状态.
-     */
-    public function changeStatus(int $id, int $status): void
-    {
-        if (! in_array($status, [0, 1], true)) {
-            throw new BusinessException('状态值不合法');
-        }
-
-        $doc = $this->findOrFail($id);
-        $doc->status = $status;
-        $doc->save();
-    }
 
     /**
      * 查询构造器.

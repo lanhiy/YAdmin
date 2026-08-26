@@ -2,6 +2,9 @@
 
 namespace App\System\Controller;
 
+use App\Annotation\Permission;
+use App\Annotation\PermissionGroup;
+use App\Annotation\WithoutPermission;
 use App\Controller\AbstractController;
 use App\System\Logic\UserLogic;
 use App\System\Request\SystemAdminRequest;
@@ -10,6 +13,7 @@ use Hyperf\HttpServer\Contract\RequestInterface;
 use Hyperf\Validation\Annotation\Scene;
 use Psr\Http\Message\ResponseInterface;
 
+#[PermissionGroup(name: '个人设置', sort: 90)]
 class UserController extends AbstractController
 {
     #[Inject]
@@ -29,6 +33,7 @@ class UserController extends AbstractController
     /**
      * 获取用户信息
      */
+    #[WithoutPermission('登录后获取自身信息，是前端初始化的必要接口')]
     public function userInfo(RequestInterface $request): ResponseInterface
     {
         $adminId = $request->getAttribute("admin_id");
@@ -38,6 +43,7 @@ class UserController extends AbstractController
     /**
      * 获取当前用户权限码（前端按钮级权限用）
      */
+    #[WithoutPermission('返回的就是自身权限，用权限保护它会造成循环依赖')]
     public function accessCodes(RequestInterface $request): ResponseInterface
     {
         $adminId = (int) $request->getAttribute("admin_id");
@@ -47,6 +53,7 @@ class UserController extends AbstractController
     /**
      * 获取个人资料
      */
+    #[Permission('profile:show', '查看资料', sort: 1)]
     public function getProfile(RequestInterface $request): ResponseInterface
     {
         $adminId = $request->getAttribute("admin_id");
@@ -56,6 +63,7 @@ class UserController extends AbstractController
     /**
      * 更新个人资料
      */
+    #[Permission('profile:update', '更新资料', sort: 2)]
     #[Scene(scene: 'modifyUserInfo')]
     public function updateProfile(SystemAdminRequest $request): ResponseInterface
     {
@@ -68,6 +76,7 @@ class UserController extends AbstractController
     /**
      * 修改密码
      */
+    #[Permission('profile:changePassword', '修改密码', sort: 3)]
     #[Scene(scene: 'modifyPassword')]
     public function changePassword(SystemAdminRequest $request): ResponseInterface
     {
@@ -80,6 +89,7 @@ class UserController extends AbstractController
     /**
      * 上传头像
      */
+    #[Permission('profile:uploadAvatar', '上传头像', sort: 4)]
     public function uploadAvatar(RequestInterface $request): ResponseInterface
     {
         $adminId = $request->getAttribute("admin_id");
@@ -96,6 +106,7 @@ class UserController extends AbstractController
     /**
      * 退出登录
      */
+    #[WithoutPermission('已登录用户都应能登出')]
     public function logout(RequestInterface $request): ResponseInterface
     {
         // TODO: 实现退出逻辑，如果需要的话可以加入黑名单

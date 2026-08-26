@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\System\Controller\Business;
 
+use App\Annotation\Permission;
+use App\Annotation\PermissionGroup;
 use App\Controller\AbstractController;
 use App\System\Logic\Business\VerificationCertLogic;
 use App\System\Request\Business\VerificationCertRequest;
@@ -11,6 +13,7 @@ use Hyperf\Di\Annotation\Inject;
 use Hyperf\Validation\Annotation\Scene;
 use Psr\Http\Message\ResponseInterface;
 
+#[PermissionGroup(name: '检定证书', sort: 22)]
 class VerificationCertController extends AbstractController
 {
     #[Inject]
@@ -19,6 +22,7 @@ class VerificationCertController extends AbstractController
     /**
      * 按产品ID获取检定证书，未录入返回 null.
      */
+    #[Permission('system:verificationCert:show', '查看详情', sort: 3)]
     public function byProduct(int $productId): ResponseInterface
     {
         return $this->success($this->logic->getByProductId($productId));
@@ -27,6 +31,7 @@ class VerificationCertController extends AbstractController
     /**
      * 获取检定证书详情.
      */
+    #[Permission('system:verificationCert:show', '查看详情', sort: 3)]
     public function show(int $id): ResponseInterface
     {
         return $this->success($this->logic->getById($id));
@@ -36,6 +41,7 @@ class VerificationCertController extends AbstractController
      * 新增检定证书.
      */
     #[Scene(scene: 'save')]
+    #[Permission('system:verificationCert:add', '新增', sort: 4)]
     public function store(VerificationCertRequest $request): ResponseInterface
     {
         $adminId = (int) $request->getAttribute('admin_id');
@@ -48,6 +54,7 @@ class VerificationCertController extends AbstractController
      * 更新检定证书.
      */
     #[Scene(scene: 'update')]
+    #[Permission('system:verificationCert:edit', '编辑', sort: 5)]
     public function update(int $id, VerificationCertRequest $request): ResponseInterface
     {
         $adminId = (int) $request->getAttribute('admin_id');
@@ -59,6 +66,7 @@ class VerificationCertController extends AbstractController
     /**
      * 删除检定证书.
      */
+    #[Permission('system:verificationCert:delete', '删除', sort: 6)]
     public function destroy(int $id): ResponseInterface
     {
         $this->logic->delete($id);
@@ -66,15 +74,4 @@ class VerificationCertController extends AbstractController
         return $this->success(null, '删除成功');
     }
 
-    /**
-     * 修改检定证书状态.
-     */
-    #[Scene(scene: 'changeStatus')]
-    public function changeStatus(VerificationCertRequest $request): ResponseInterface
-    {
-        $data = $request->validated();
-        $this->logic->changeStatus((int) $data['id'], (int) $data['status']);
-
-        return $this->success(null, '状态修改成功');
-    }
 }

@@ -9,9 +9,9 @@ use Hyperf\Validation\Request\FormRequest;
 class CalibrationCertRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['product_id', 'cert_no', 'client_name', 'unit_name', 'address', 'approver_sign_img', 'reviewer_sign_img', 'calibrator_sign_img', 'receive_date', 'calibrate_date', 'issue_date', 'total_pages', 'remark', 'status'],
-        'update' => ['cert_no', 'client_name', 'unit_name', 'address', 'approver_sign_img', 'reviewer_sign_img', 'calibrator_sign_img', 'receive_date', 'calibrate_date', 'issue_date', 'total_pages', 'remark', 'status'],
-        'changeStatus' => ['id', 'status'],
+        'save' => ['product_id', 'cert_no', 'client_name', 'unit_name', 'address', 'approver_sign_img', 'reviewer_sign_img', 'calibrator_sign_img', 'receive_date', 'calibrate_date', 'issue_date', 'total_pages', 'remark'],
+        'update' => ['cert_no', 'client_name', 'unit_name', 'address', 'approver_sign_img', 'reviewer_sign_img', 'calibrator_sign_img', 'receive_date', 'calibrate_date', 'issue_date', 'total_pages', 'remark'],
+        'changeStatus' => ['id'],
     ];
 
     /**
@@ -36,7 +36,6 @@ class CalibrationCertRequest extends FormRequest
             'issue_date' => 'required|date',
             'total_pages' => 'integer|min:1',
             'remark' => 'string|max:500',
-            'status' => 'required|integer|in:0,1',
         ];
     }
 
@@ -60,7 +59,6 @@ class CalibrationCertRequest extends FormRequest
             'issue_date' => '签发日期',
             'total_pages' => '总页数',
             'remark' => '备注',
-            'status' => '状态',
         ];
     }
 
@@ -84,8 +82,6 @@ class CalibrationCertRequest extends FormRequest
             'issue_date.required' => '请选择签发日期',
             'issue_date.date' => '签发日期格式不正确',
             'total_pages.min' => '总页数至少为1',
-            'status.required' => '请选择状态',
-            'status.in' => '状态值不合法',
         ];
     }
 

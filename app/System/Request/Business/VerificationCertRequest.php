@@ -9,9 +9,9 @@ use Hyperf\Validation\Request\FormRequest;
 class VerificationCertRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['product_id', 'cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark', 'status'],
-        'update' => ['cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark', 'status'],
-        'changeStatus' => ['id', 'status'],
+        'save' => ['product_id', 'cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark'],
+        'update' => ['cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark'],
+        'changeStatus' => ['id'],
     ];
 
     /**
@@ -36,7 +36,6 @@ class VerificationCertRequest extends FormRequest
             'valid_until' => 'required|date',
             'total_pages' => 'integer|min:1',
             'remark' => 'string|max:500',
-            'status' => 'required|integer|in:0,1',
         ];
     }
 
@@ -60,7 +59,6 @@ class VerificationCertRequest extends FormRequest
             'valid_until' => '有效期',
             'total_pages' => '总页数',
             'remark' => '备注',
-            'status' => '状态',
         ];
     }
 
@@ -83,8 +81,6 @@ class VerificationCertRequest extends FormRequest
             'valid_until.required' => '请选择有效期',
             'valid_until.date' => '有效期格式不正确',
             'total_pages.min' => '总页数至少为1',
-            'status.required' => '请选择状态',
-            'status.in' => '状态值不合法',
         ];
     }
 

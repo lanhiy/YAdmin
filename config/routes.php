@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Middleware\JwtAuthMiddleware;
+use App\Middleware\PermissionMiddleware;
 use Hyperf\HttpServer\Router\Router;
 
 Router::addRoute(['GET', 'POST', 'HEAD'], '/', [App\Controller\IndexController::class, 'index']);
@@ -87,7 +88,6 @@ Router::addGroup('/system', function () {
         Router::post('', [App\System\Controller\Business\ProductController::class, 'store']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'destroy']);
-        Router::post('/change-status', [App\System\Controller\Business\ProductController::class, 'changeStatus']);
     });
 
     // 业务模块 - 测试报告路由
@@ -97,7 +97,6 @@ Router::addGroup('/system', function () {
         Router::post('', [App\System\Controller\Business\TestReportController::class, 'store']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\TestReportController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\TestReportController::class, 'destroy']);
-        Router::post('/change-status', [App\System\Controller\Business\TestReportController::class, 'changeStatus']);
     });
 
     // 业务模块 - 检定证书路由
@@ -107,7 +106,6 @@ Router::addGroup('/system', function () {
         Router::post('', [App\System\Controller\Business\VerificationCertController::class, 'store']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\VerificationCertController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\VerificationCertController::class, 'destroy']);
-        Router::post('/change-status', [App\System\Controller\Business\VerificationCertController::class, 'changeStatus']);
     });
 
     // 业务模块 - 校准证书路由
@@ -117,7 +115,6 @@ Router::addGroup('/system', function () {
         Router::post('', [App\System\Controller\Business\CalibrationCertController::class, 'store']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\CalibrationCertController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\CalibrationCertController::class, 'destroy']);
-        Router::post('/change-status', [App\System\Controller\Business\CalibrationCertController::class, 'changeStatus']);
     });
 
     // 业务模块 - 签名库路由
@@ -128,20 +125,10 @@ Router::addGroup('/system', function () {
         Router::post('', [App\System\Controller\Business\SignatureController::class, 'store']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\SignatureController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\SignatureController::class, 'destroy']);
-        Router::post('/change-status', [App\System\Controller\Business\SignatureController::class, 'changeStatus']);
     });
 
-    // 业务模块 - 证书管理路由
-    Router::addGroup('/business/certificate', function () {
-        Router::get('/list', [App\System\Controller\Business\CertificateController::class, 'list']);
-        Router::get('/{id:\d+}', [App\System\Controller\Business\CertificateController::class, 'show']);
-        Router::post('', [App\System\Controller\Business\CertificateController::class, 'store']);
-        Router::put('/{id:\d+}', [App\System\Controller\Business\CertificateController::class, 'update']);
-        Router::delete('/{id:\d+}', [App\System\Controller\Business\CertificateController::class, 'destroy']);
-        Router::post('/change-status', [App\System\Controller\Business\CertificateController::class, 'changeStatus']);
-    });
-
-}, ['middleware' => [JwtAuthMiddleware::class]]);
+    // 认证（你是谁）在前，鉴权（你能做什么）在后，顺序不可颠倒
+}, ['middleware' => [JwtAuthMiddleware::class, PermissionMiddleware::class]]);
 
 Router::get('/favicon.ico', function () {
     return '';
