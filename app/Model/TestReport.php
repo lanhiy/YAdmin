@@ -15,10 +15,9 @@ use Hyperf\Database\Model\Relations\BelongsTo;
  * @property int $product_id 产品ID
  * @property string $report_no 报告编号
  * @property string $client_name 委托方
- * @property string $unit_name 单位名称
- * @property string $approver_sign_img 批准人签名图片
- * @property string $reviewer_sign_img 核验人签名图片
- * @property string $tester_sign_img 测试人签名图片
+ * @property string $approver_sign_img 批准人签名图片 Base64 Data URL
+ * @property string $reviewer_sign_img 核验人签名图片 Base64 Data URL
+ * @property string $tester_sign_img 测试人签名图片 Base64 Data URL
  * @property string $test_date 测试日期
  * @property int $total_pages 总页数
  * @property string $remark 备注
@@ -40,7 +39,7 @@ class TestReport extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'product_id', 'report_no', 'client_name', 'unit_name', 'approver_sign_img', 'reviewer_sign_img', 'tester_sign_img', 'test_date', 'total_pages', 'remark', 'created_by', 'updated_by', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'product_id', 'report_no', 'client_name', 'approver_sign_img', 'reviewer_sign_img', 'tester_sign_img', 'test_date', 'total_pages', 'remark', 'created_by', 'updated_by', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.

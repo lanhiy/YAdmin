@@ -64,10 +64,10 @@ class SignatureLogic
     public function getEnabledSignatures(): array
     {
         return Signature::query()
-            ->where('image_url', '<>', '')
+            ->where('image_base64', '<>', '')
             ->orderBy('sort', 'asc')
             ->orderBy('id', 'desc')
-            ->get(['id', 'name', 'image_url'])
+            ->get(['id', 'name', 'image_base64'])
             ->toArray();
     }
 
@@ -112,7 +112,7 @@ class SignatureLogic
     /**
      * 删除签名.
      *
-     * 单据里存的是图片 URL 副本，删除签名不影响已签发的报告和证书。
+     * 单据里存的是图片 Base64 副本，删除签名不影响已签发的报告和证书。
      */
     public function deleteSignature(int $id): void
     {

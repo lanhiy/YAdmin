@@ -174,7 +174,6 @@ abstract class ProductDocLogic
             'instrument_no' => $product->instrument_no,
             'model' => $product->model,
             'manufacturer' => $product->manufacturer,
-            'unit_name' => $product->unit_name,
         ];
 
         $ids = array_filter([(int) ($data['created_by'] ?? 0), (int) ($data['updated_by'] ?? 0)]);

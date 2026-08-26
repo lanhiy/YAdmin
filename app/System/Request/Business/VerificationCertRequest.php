@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\System\Request\Business;
 
+use App\Validation\Rules\Base64Image;
 use Hyperf\Validation\Request\FormRequest;
 
 class VerificationCertRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['product_id', 'cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark'],
-        'update' => ['cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark'],
+        'save' => ['product_id', 'cert_no', 'submit_unit', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark'],
+        'update' => ['cert_no', 'submit_unit', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark'],
         'changeStatus' => ['id'],
     ];
 
@@ -26,12 +27,11 @@ class VerificationCertRequest extends FormRequest
             'product_id' => 'required|integer|min:1',
             'cert_no' => 'required|string|max:50',
             'submit_unit' => 'string|max:150',
-            'unit_name' => 'string|max:150',
             'basis' => 'string|max:500',
             'conclusion' => 'string|max:255',
-            'approver_sign_img' => 'string|max:255',
-            'reviewer_sign_img' => 'string|max:255',
-            'verifier_sign_img' => 'string|max:255',
+            'approver_sign_img' => ['string', new Base64Image()],
+            'reviewer_sign_img' => ['string', new Base64Image()],
+            'verifier_sign_img' => ['string', new Base64Image()],
             'verify_date' => 'required|date',
             'valid_until' => 'required|date',
             'total_pages' => 'integer|min:1',
@@ -49,7 +49,6 @@ class VerificationCertRequest extends FormRequest
             'product_id' => '产品',
             'cert_no' => '证书编号',
             'submit_unit' => '送检单位',
-            'unit_name' => '单位名称',
             'basis' => '检定依据',
             'conclusion' => '检定结论',
             'approver_sign_img' => '批准人签名',
@@ -73,7 +72,6 @@ class VerificationCertRequest extends FormRequest
             'cert_no.required' => '请输入证书编号',
             'cert_no.max' => '证书编号最多50个字符',
             'submit_unit.max' => '送检单位最多150个字符',
-            'unit_name.max' => '单位名称最多150个字符',
             'basis.max' => '检定依据最多500个字符',
             'conclusion.max' => '检定结论最多255个字符',
             'verify_date.required' => '请选择检定日期',

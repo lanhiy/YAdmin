@@ -10,12 +10,12 @@ use Hyperf\Database\Model\SoftDeletes;
 /**
  * 预存签名图片库.
  *
- * 单据表里的签名字段只复制 image_url，不做外键关联，
+ * 单据表里的签名字段只复制 image_base64，不做外键关联，
  * 这样签名库改图/删除不会影响已签发的报告和证书。
  *
  * @property int $id ID
  * @property string $name 签名人姓名
- * @property string $image_url 签名图片地址
+ * @property string $image_base64 签名图片 Base64 Data URL
  * @property string $remark 备注
  * @property int $sort 排序
  * @property null|\Carbon\Carbon $deleted_at 软删除时间
@@ -36,7 +36,7 @@ class Signature extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'name', 'image_url', 'remark', 'sort', 'created_by', 'updated_by', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'name', 'image_base64', 'remark', 'sort', 'created_by', 'updated_by', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.

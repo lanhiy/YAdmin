@@ -36,10 +36,6 @@ class ProductLogic
         if (! empty($params['manufacturer']) && trim((string) $params['manufacturer']) !== '') {
             $query->where('manufacturer', 'like', '%' . $params['manufacturer'] . '%');
         }
-        if (! empty($params['unit_name']) && trim((string) $params['unit_name']) !== '') {
-            $query->where('unit_name', 'like', '%' . $params['unit_name'] . '%');
-        }
-
         $query->orderBy('sort', 'asc')->orderBy('id', 'desc');
 
         $page = max(1, (int) ($params['page'] ?? 1));

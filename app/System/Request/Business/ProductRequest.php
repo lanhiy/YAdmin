@@ -9,8 +9,8 @@ use Hyperf\Validation\Request\FormRequest;
 class ProductRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['instrument_name', 'instrument_no', 'model', 'manufacturer', 'unit_name', 'remark', 'sort'],
-        'update' => ['instrument_name', 'instrument_no', 'model', 'manufacturer', 'unit_name', 'remark', 'sort'],
+        'save' => ['instrument_name', 'instrument_no', 'model', 'manufacturer', 'remark', 'sort'],
+        'update' => ['instrument_name', 'instrument_no', 'model', 'manufacturer', 'remark', 'sort'],
         'changeStatus' => ['id'],
     ];
 
@@ -25,7 +25,6 @@ class ProductRequest extends FormRequest
             'instrument_no' => 'required|string|max:50',
             'model' => 'string|max:100',
             'manufacturer' => 'string|max:150',
-            'unit_name' => 'string|max:150',
             'remark' => 'string|max:500',
             'sort' => 'integer',
         ];
@@ -42,7 +41,6 @@ class ProductRequest extends FormRequest
             'instrument_no' => '器具编号',
             'model' => '型号',
             'manufacturer' => '制造厂商',
-            'unit_name' => '单位名称',
             'remark' => '备注',
             'sort' => '排序',
         ];
@@ -60,7 +58,6 @@ class ProductRequest extends FormRequest
             'instrument_no.max' => '器具编号最多50个字符',
             'model.max' => '型号最多100个字符',
             'manufacturer.max' => '制造厂商最多150个字符',
-            'unit_name.max' => '单位名称最多150个字符',
         ];
     }
 

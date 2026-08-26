@@ -15,12 +15,11 @@ use Hyperf\Database\Model\Relations\BelongsTo;
  * @property int $product_id 产品ID
  * @property string $cert_no 证书编号
  * @property string $submit_unit 送检单位
- * @property string $unit_name 单位名称
  * @property string $basis 检定依据
  * @property string $conclusion 检定结论
- * @property string $approver_sign_img 批准人签名图片
- * @property string $reviewer_sign_img 核验人签名图片
- * @property string $verifier_sign_img 检定人签名图片
+ * @property string $approver_sign_img 批准人签名图片 Base64 Data URL
+ * @property string $reviewer_sign_img 核验人签名图片 Base64 Data URL
+ * @property string $verifier_sign_img 检定人签名图片 Base64 Data URL
  * @property string $verify_date 检定日期
  * @property string $valid_until 有效期
  * @property int $total_pages 总页数
@@ -43,7 +42,7 @@ class VerificationCert extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'product_id', 'cert_no', 'submit_unit', 'unit_name', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark', 'created_by', 'updated_by', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'product_id', 'cert_no', 'submit_unit', 'basis', 'conclusion', 'approver_sign_img', 'reviewer_sign_img', 'verifier_sign_img', 'verify_date', 'valid_until', 'total_pages', 'remark', 'created_by', 'updated_by', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.

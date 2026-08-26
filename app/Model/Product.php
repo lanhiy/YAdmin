@@ -16,7 +16,6 @@ use Hyperf\Database\Model\Relations\HasOne;
  * @property string $instrument_no 器具编号
  * @property string $model 型号
  * @property string $manufacturer 制造厂商
- * @property string $unit_name 单位名称
  * @property string $remark 备注
  * @property int $sort 排序
  * @property null|\Carbon\Carbon $deleted_at 软删除时间
@@ -40,7 +39,7 @@ class Product extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'instrument_name', 'instrument_no', 'model', 'manufacturer', 'unit_name', 'remark', 'sort', 'created_by', 'updated_by', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'instrument_name', 'instrument_no', 'model', 'manufacturer', 'remark', 'sort', 'created_by', 'updated_by', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.

@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\System\Request\Business;
 
+use App\Validation\Rules\Base64Image;
 use Hyperf\Validation\Request\FormRequest;
 
 class SignatureRequest extends FormRequest
 {
     protected array $scenes = [
-        'save' => ['name', 'image_url', 'remark', 'sort'],
-        'update' => ['name', 'image_url', 'remark', 'sort'],
+        'save' => ['name', 'image_base64', 'remark', 'sort'],
+        'update' => ['name', 'image_base64', 'remark', 'sort'],
         'changeStatus' => ['id'],
     ];
 
@@ -22,7 +23,7 @@ class SignatureRequest extends FormRequest
         return [
             'id' => 'required|integer',
             'name' => 'required|string|max:50',
-            'image_url' => 'required|string|max:255',
+            'image_base64' => ['required', 'string', new Base64Image()],
             'remark' => 'string|max:500',
             'sort' => 'integer',
         ];
@@ -36,7 +37,7 @@ class SignatureRequest extends FormRequest
         return [
             'id' => '签名ID',
             'name' => '签名人姓名',
-            'image_url' => '签名图片',
+            'image_base64' => '签名图片',
             'remark' => '备注',
             'sort' => '排序',
         ];
@@ -50,8 +51,7 @@ class SignatureRequest extends FormRequest
         return [
             'name.required' => '请输入签名人姓名',
             'name.max' => '签名人姓名最多50个字符',
-            'image_url.required' => '请上传签名图片',
-            'image_url.max' => '签名图片地址最多255个字符',
+            'image_base64.required' => '请上传签名图片',
         ];
     }
 

@@ -15,11 +15,10 @@ use Hyperf\Database\Model\Relations\BelongsTo;
  * @property int $product_id 产品ID
  * @property string $cert_no 证书编号
  * @property string $client_name 委托方
- * @property string $unit_name 单位名称
  * @property string $address 地址
- * @property string $approver_sign_img 批准人签名图片
- * @property string $reviewer_sign_img 核验人签名图片
- * @property string $calibrator_sign_img 校准人签名图片
+ * @property string $approver_sign_img 批准人签名图片 Base64 Data URL
+ * @property string $reviewer_sign_img 核验人签名图片 Base64 Data URL
+ * @property string $calibrator_sign_img 校准人签名图片 Base64 Data URL
  * @property string $receive_date 接收日期
  * @property string $calibrate_date 校准日期
  * @property string $issue_date 签发日期
@@ -43,7 +42,7 @@ class CalibrationCert extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'product_id', 'cert_no', 'client_name', 'unit_name', 'address', 'approver_sign_img', 'reviewer_sign_img', 'calibrator_sign_img', 'receive_date', 'calibrate_date', 'issue_date', 'total_pages', 'remark', 'created_by', 'updated_by', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'product_id', 'cert_no', 'client_name', 'address', 'approver_sign_img', 'reviewer_sign_img', 'calibrator_sign_img', 'receive_date', 'calibrate_date', 'issue_date', 'total_pages', 'remark', 'created_by', 'updated_by', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.
