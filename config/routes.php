@@ -13,6 +13,9 @@ Router::post('/system/login', [App\System\Controller\UserController::class, 'log
 // ✅ 系统配置 - 前端初始化用（不需要认证）
 Router::get('/system/config', [App\System\Controller\ConfigController::class, 'all']);
 
+// 已上传文件的读取（img 标签无法携带 Authorization 头，故不挂 JWT 中间件）
+Router::get('/uploads/{path:.+}', [App\System\Controller\UploadController::class, 'show']);
+
 // ========== 需要认证的路由 ==========
 Router::addGroup('/system', function () {
     // 用户相关
@@ -71,6 +74,61 @@ Router::addGroup('/system', function () {
         Router::post('/batch-update', [App\System\Controller\ConfigController::class, 'batchUpdate']);
         Router::delete('/{id:\d+}', [App\System\Controller\ConfigController::class, 'destroy']);
         Router::post('/change-status', [App\System\Controller\ConfigController::class, 'changeStatus']);
+    });
+
+    // 通用上传
+    Router::post('/upload/image', [App\System\Controller\UploadController::class, 'image']);
+
+    // 业务模块 - 产品（器具）管理路由
+    Router::addGroup('/business/product', function () {
+        Router::get('/list', [App\System\Controller\Business\ProductController::class, 'list']);
+        Router::get('/options', [App\System\Controller\Business\ProductController::class, 'options']);
+        Router::get('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'show']);
+        Router::post('', [App\System\Controller\Business\ProductController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'update']);
+        Router::delete('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\Business\ProductController::class, 'changeStatus']);
+    });
+
+    // 业务模块 - 测试报告路由
+    Router::addGroup('/business/test-report', function () {
+        Router::get('/by-product/{productId:\d+}', [App\System\Controller\Business\TestReportController::class, 'byProduct']);
+        Router::get('/{id:\d+}', [App\System\Controller\Business\TestReportController::class, 'show']);
+        Router::post('', [App\System\Controller\Business\TestReportController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\Business\TestReportController::class, 'update']);
+        Router::delete('/{id:\d+}', [App\System\Controller\Business\TestReportController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\Business\TestReportController::class, 'changeStatus']);
+    });
+
+    // 业务模块 - 检定证书路由
+    Router::addGroup('/business/verification-cert', function () {
+        Router::get('/by-product/{productId:\d+}', [App\System\Controller\Business\VerificationCertController::class, 'byProduct']);
+        Router::get('/{id:\d+}', [App\System\Controller\Business\VerificationCertController::class, 'show']);
+        Router::post('', [App\System\Controller\Business\VerificationCertController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\Business\VerificationCertController::class, 'update']);
+        Router::delete('/{id:\d+}', [App\System\Controller\Business\VerificationCertController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\Business\VerificationCertController::class, 'changeStatus']);
+    });
+
+    // 业务模块 - 校准证书路由
+    Router::addGroup('/business/calibration-cert', function () {
+        Router::get('/by-product/{productId:\d+}', [App\System\Controller\Business\CalibrationCertController::class, 'byProduct']);
+        Router::get('/{id:\d+}', [App\System\Controller\Business\CalibrationCertController::class, 'show']);
+        Router::post('', [App\System\Controller\Business\CalibrationCertController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\Business\CalibrationCertController::class, 'update']);
+        Router::delete('/{id:\d+}', [App\System\Controller\Business\CalibrationCertController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\Business\CalibrationCertController::class, 'changeStatus']);
+    });
+
+    // 业务模块 - 签名库路由
+    Router::addGroup('/business/signature', function () {
+        Router::get('/list', [App\System\Controller\Business\SignatureController::class, 'list']);
+        Router::get('/all', [App\System\Controller\Business\SignatureController::class, 'all']);
+        Router::get('/{id:\d+}', [App\System\Controller\Business\SignatureController::class, 'show']);
+        Router::post('', [App\System\Controller\Business\SignatureController::class, 'store']);
+        Router::put('/{id:\d+}', [App\System\Controller\Business\SignatureController::class, 'update']);
+        Router::delete('/{id:\d+}', [App\System\Controller\Business\SignatureController::class, 'destroy']);
+        Router::post('/change-status', [App\System\Controller\Business\SignatureController::class, 'changeStatus']);
     });
 
     // 业务模块 - 证书管理路由
