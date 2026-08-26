@@ -29,7 +29,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  * 判定顺序：
  *   1. 无任何权限注解        -> 403（fail-closed，漏声明在联调即暴露）
  *   2. WithoutPermission     -> 放行（显式声明的公开接口）
- *   3. 超管                  -> 放行（ID=1 或持有 is_super 角色）
+ *   3. 超管                  -> 放行（内置管理员 ID=1）
  *   4. 比对权限码            -> 按 any/all 模式判定
  */
 class PermissionMiddleware implements MiddlewareInterface
@@ -68,7 +68,7 @@ class PermissionMiddleware implements MiddlewareInterface
 
         $identity = $this->resolveIdentity($request);
 
-        // 超管放行：ID=1 或持有 is_super 角色
+        // 内置管理员放行，避免权限配置损坏后无法修复系统
         if ($identity->isSuper) {
             return $handler->handle($request);
         }

@@ -4,91 +4,73 @@ declare(strict_types=1);
 
 namespace App\System\Logic;
 
-use App\Model\SystemPermission;
+use App\Model\SystemMenu;
+use Hyperf\Di\Annotation\Inject;
 
 /**
- * 权限树：角色授权界面的数据源.
+ * 菜单/按钮授权树。
  *
- * 按 module 分组，组为父节点、权限点为叶子节点，
- * 供前端渲染成可勾选的树形结构。
+ * 保留旧接口路径只是为了兼容已有前端调用，数据源已经改为
+ * system_menu.authority，不再读取独立权限表。
  */
 class PermissionTreeLogic
 {
-    /**
-     * 获取权限树.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    #[Inject]
+    protected MenuLogic $menuLogic;
+
+    /** @return array<int, array<string, mixed>> */
     public function getTree(): array
     {
-        $permissions = SystemPermission::query()
-            ->orderBy('module_sort')
-            ->orderBy('module')
-            ->orderBy('sort')
-            ->orderBy('id')
-            ->get(['id', 'code', 'name', 'module', 'module_name', 'http_method', 'http_path', 'is_synced']);
-
-        $groups = [];
-
-        foreach ($permissions as $permission) {
-            $module = (string) $permission->module;
-
-            if (! isset($groups[$module])) {
-                $groups[$module] = [
-                    // 分组节点用负数 key，避免与权限点ID冲突导致勾选串台
-                    'id' => -(count($groups) + 1),
-                    'code' => $module,
-                    'title' => $permission->module_name !== '' ? $permission->module_name : $module,
-                    'is_group' => true,
-                    'children' => [],
-                ];
-            }
-
-            $groups[$module]['children'][] = [
-                'id' => (int) $permission->id,
-                'code' => (string) $permission->code,
-                'title' => (string) $permission->name,
-                'is_group' => false,
-                'http_method' => (string) $permission->http_method,
-                'http_path' => (string) $permission->http_path,
-                // 代码中已移除但仍有授权的权限点，前端可标记提示
-                'is_synced' => (int) $permission->is_synced === SystemPermission::SYNCED_YES,
-            ];
-        }
-
-        return array_values($groups);
+        return $this->mapTree($this->menuLogic->getMenuTree());
     }
 
-    /**
-     * 获取扁平权限列表（用于权限点管理页）.
-     *
-     * @return array<int, array<string, mixed>>
-     */
+    /** @return array<int, array<string, mixed>> */
     public function getList(array $params = []): array
     {
-        $query = SystemPermission::query();
+        $keyword = trim((string) ($params['keyword'] ?? ''));
+        $result = [];
+        $this->flatten($this->menuLogic->getMenuTree(), $result, $keyword);
 
-        if (! empty($params['keyword'])) {
-            $keyword = trim((string) $params['keyword']);
-            $query->where(function ($q) use ($keyword): void {
-                $q->where('code', 'like', "%{$keyword}%")
-                    ->orWhere('name', 'like', "%{$keyword}%");
-            });
+        return $result;
+    }
+
+    /** @param array<int, array<string, mixed>> $nodes @return array<int, array<string, mixed>> */
+    private function mapTree(array $nodes): array
+    {
+        return array_map(function (array $node): array {
+            $authority = array_values(array_filter((array) ($node['authority'] ?? []), 'is_string'));
+
+            return [
+                'id' => (int) ($node['id'] ?? 0),
+                'code' => $authority[0] ?? '',
+                'title' => (string) ($node['title'] ?? ''),
+                'is_group' => (int) ($node['type'] ?? 0) !== SystemMenu::TYPE_BUTTON,
+                'type' => (int) ($node['type'] ?? 0),
+                'authority' => $authority,
+                'children' => $this->mapTree((array) ($node['children'] ?? [])),
+            ];
+        }, $nodes);
+    }
+
+    /** @param array<int, array<string, mixed>> $nodes @param array<int, array<string, mixed>> $result */
+    private function flatten(array $nodes, array &$result, string $keyword): void
+    {
+        foreach ($nodes as $node) {
+            foreach ((array) ($node['authority'] ?? []) as $code) {
+                $code = (string) $code;
+                if ($keyword !== '' && ! str_contains($code, $keyword) && ! str_contains((string) $node['title'], $keyword)) {
+                    continue;
+                }
+                $result[] = [
+                    'id' => (int) $node['id'],
+                    'code' => $code,
+                    'name' => (string) $node['title'],
+                    'module' => (string) ($node['name'] ?? ''),
+                    'type' => (int) ($node['type'] ?? 0),
+                    'is_synced' => true,
+                ];
+            }
+            $this->flatten((array) ($node['children'] ?? []), $result, $keyword);
         }
-
-        if (! empty($params['module'])) {
-            $query->where('module', $params['module']);
-        }
-
-        if (isset($params['is_synced']) && $params['is_synced'] !== '') {
-            $query->where('is_synced', (int) $params['is_synced']);
-        }
-
-        return $query
-            ->orderBy('module_sort')
-            ->orderBy('module')
-            ->orderBy('sort')
-            ->get()
-            ->toArray();
     }
 }

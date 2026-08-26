@@ -10,8 +10,8 @@ use Hyperf\Di\Annotation\AbstractAnnotation;
 /**
  * 接口权限声明.
  *
- * 权限要求与被保护的代码放在一起，扫描命令据此同步 system_permission 表，
- * 数据库只是代码声明的投影，不存在两份互相漂移的真相。
+ * 权限码与 system_menu.authority 使用同一契约：菜单按钮用于前端可见性，
+ * 注解用于后端接口校验，角色只授权菜单/按钮节点。
  *
  * 用法：
  *   #[Permission('system:role:list', '查看列表')]

@@ -4,48 +4,29 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-
-
 use Carbon\Carbon;
 use Hyperf\Database\Model\Relations\BelongsTo;
 
-/**
- * @property int $id ID
- * @property int $admin_id 管理员ID
- * @property int $role_id 角色ID
- * @property Carbon $created_at 创建时间
- * @property Carbon $updated_at 更新时间
- * @property-read null|SystemAdmin $admin 
- * @property-read null|SystemRole $role 
- */
+/** 管理员与角色关联。 */
 class SystemAdminRole extends Model
 {
-    /**
-     * The table associated with the model.
-     */
     protected ?string $table = 'system_admin_role';
 
-    /**
-     * The attributes that are mass assignable.
-     */
-    protected array $fillable = ['id', 'admin_id', 'role_id', 'created_at', 'updated_at'];
+    protected array $fillable = ['admin_id', 'role_id', 'created_at', 'updated_at'];
 
-    /**
-     * The attributes that should be cast to native types.
-     */
-    protected array $casts = ['id' => 'integer', 'admin_id' => 'integer', 'role_id' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+    protected array $casts = [
+        'id' => 'integer',
+        'admin_id' => 'integer',
+        'role_id' => 'integer',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
 
-    /**
-     * 关联管理员
-     */
     public function admin(): BelongsTo
     {
         return $this->belongsTo(SystemAdmin::class, 'admin_id', 'id');
     }
 
-    /**
-     * 关联角色
-     */
     public function role(): BelongsTo
     {
         return $this->belongsTo(SystemRole::class, 'role_id', 'id');

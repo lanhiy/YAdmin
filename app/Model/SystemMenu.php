@@ -22,7 +22,7 @@ namespace App\Model;
  * @property int $hide_in_breadcrumb 是否在面包屑中隐藏：0-否，1-是
  * @property int $hide_children_in_menu 是否隐藏子菜单：0-否，1-是
  * @property int $keep_alive 是否缓存页面：0-否，1-是
- * @property null|int $permission_id 可见性绑定的权限点ID，NULL=登录可见
+ * @property array<int, string> $authority 权限标识数组
  * @property int $ignore_access 是否忽略权限：0-否，1-是
  * @property int $menu_visible_with_forbidden 菜单可见但访问403：0-否，1-是
  * @property string $badge 徽标文本
@@ -54,18 +54,19 @@ class SystemMenu extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected array $fillable = ['id', 'parent_id', 'name', 'path', 'component', 'redirect', 'type', 'title', 'icon', 'active_icon', 'hide_in_menu', 'hide_in_tab', 'hide_in_breadcrumb', 'hide_children_in_menu', 'keep_alive', 'permission_id', 'ignore_access', 'menu_visible_with_forbidden', 'badge', 'badge_type', 'badge_variants', 'affix_tab', 'affix_tab_order', 'full_path_key', 'active_path', 'max_num_of_open_tab', 'link', 'iframe_src', 'open_in_new_window', 'no_basic_layout', 'query', 'sort', 'status', 'remark', 'created_at', 'updated_at'];
+    protected array $fillable = ['id', 'parent_id', 'name', 'path', 'component', 'redirect', 'type', 'title', 'icon', 'active_icon', 'hide_in_menu', 'hide_in_tab', 'hide_in_breadcrumb', 'hide_children_in_menu', 'keep_alive', 'authority', 'ignore_access', 'menu_visible_with_forbidden', 'badge', 'badge_type', 'badge_variants', 'affix_tab', 'affix_tab_order', 'full_path_key', 'active_path', 'max_num_of_open_tab', 'link', 'iframe_src', 'open_in_new_window', 'no_basic_layout', 'query', 'sort', 'status', 'remark', 'created_at', 'updated_at'];
 
     /**
      * The attributes that should be cast to native types.
      */
-    protected array $casts = ['id' => 'integer', 'parent_id' => 'integer', 'type' => 'integer', 'permission_id' => 'integer', 'hide_in_menu' => 'integer', 'hide_in_tab' => 'integer', 'hide_in_breadcrumb' => 'integer', 'hide_children_in_menu' => 'integer', 'keep_alive' => 'integer', 'ignore_access' => 'integer', 'menu_visible_with_forbidden' => 'integer', 'affix_tab' => 'integer', 'affix_tab_order' => 'integer', 'full_path_key' => 'integer', 'max_num_of_open_tab' => 'integer', 'open_in_new_window' => 'integer', 'no_basic_layout' => 'integer', 'sort' => 'integer', 'status' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+    protected array $casts = ['id' => 'integer', 'parent_id' => 'integer', 'type' => 'integer', 'authority' => 'array', 'query' => 'array', 'hide_in_menu' => 'integer', 'hide_in_tab' => 'integer', 'hide_in_breadcrumb' => 'integer', 'hide_children_in_menu' => 'integer', 'keep_alive' => 'integer', 'ignore_access' => 'integer', 'menu_visible_with_forbidden' => 'integer', 'affix_tab' => 'integer', 'affix_tab_order' => 'integer', 'full_path_key' => 'integer', 'max_num_of_open_tab' => 'integer', 'open_in_new_window' => 'integer', 'no_basic_layout' => 'integer', 'sort' => 'integer', 'status' => 'integer', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
 
     /**
      * 菜单类型常量
      */
-    public const TYPE_CATALOG = 1; // 目录：可见性由子节点推导
-    public const TYPE_MENU = 2;    // 菜单：可见性由 permission_id 决定
+    public const TYPE_CATALOG = 1;
+    public const TYPE_MENU = 2;
+    public const TYPE_BUTTON = 3;
 
     /**
      * 状态常量
@@ -91,11 +92,4 @@ class SystemMenu extends Model
         return $this->belongsTo(SystemMenu::class, 'parent_id', 'id');
     }
 
-    /**
-     * 关联可见性权限点.
-     */
-    public function permission()
-    {
-        return $this->belongsTo(SystemPermission::class, 'permission_id', 'id');
-    }
 }

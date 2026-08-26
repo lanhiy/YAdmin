@@ -20,14 +20,14 @@ class SystemRoleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'id' => 'required|integer',
+            'id' => 'sometimes|integer',
             'name' => 'required|string|max:50',
-            'code' => 'required|string|max:50',
-            'description' => 'string|max:255',
-            'sort' => 'integer',
+            'code' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z0-9_]+$/'],
+            'description' => 'sometimes|nullable|string|max:255',
+            'sort' => 'sometimes|integer|min:0',
             'status' => 'required|integer|in:0,1',
-            'menu_ids' => 'array',
-            'menu_ids.*' => 'integer',
+            'menu_ids' => 'sometimes|array',
+            'menu_ids.*' => 'integer|min:1',
         ];
     }
 

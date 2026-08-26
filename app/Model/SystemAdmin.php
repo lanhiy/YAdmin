@@ -27,7 +27,7 @@ use Carbon\Carbon;
  * @property Carbon $created_at 创建时间
  * @property Carbon $updated_at 更新时间
  * @property-write mixed $password 密码
- * @property-read null|Collection|SystemRole[] $roles 
+ * @property-read null|Collection|SystemRole[] $roles
  */
 class SystemAdmin extends Model
 {
@@ -71,7 +71,7 @@ class SystemAdmin extends Model
      */
     public function roles(): BelongsToMany
     {
-        return $this->belongsToMany(SystemRole::class,'system_admin_role','admin_id','role_id')->withTimestamps();
+        return $this->belongsToMany(SystemRole::class, 'system_admin_role', 'admin_id', 'role_id')->withTimestamps();
     }
 
     public const STATUS_DISABLED = 0;
