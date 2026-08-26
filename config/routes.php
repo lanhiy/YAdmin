@@ -93,6 +93,7 @@ Router::addGroup('/system', function () {
         Router::get('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'show']);
         Router::post('', [App\System\Controller\Business\ProductController::class, 'store']);
         Router::post('/copy/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'copy']);
+        Router::post('/pdf-data/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'pdfData']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'destroy']);
     });

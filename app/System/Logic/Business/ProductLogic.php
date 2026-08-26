@@ -14,6 +14,14 @@ use Hyperf\DbConnection\Db;
 
 class ProductLogic
 {
+    /** @var array<string, string> PDF 模板类型与展示名称。校准证书的两个模板共用同一张数据表。 */
+    private const PDF_DOCUMENT_TYPES = [
+        'test-report' => '测试报告',
+        'verification-cert' => '检定证书',
+        'calibration-cert-logo' => '校准证书（带LOGO）',
+        'calibration-cert-no-logo' => '校准证书（无LOGO）',
+    ];
+
     /**
      * 获取产品列表（分页）.
      *
@@ -80,6 +88,37 @@ class ProductLogic
         $data['has_calibration_cert'] = $data['calibration_cert'] !== null;
 
         return $data;
+    }
+
+    /**
+     * 获取 PDF 模板所需数据。
+     *
+     * 四种模板中两种校准证书都读取 calibration_cert，模板差异只由
+     * document_type 决定。未录入对应单据时明确报错，避免生成空白文件。
+     */
+    public function getPdfData(int $id, string $type): array
+    {
+        if (! isset(self::PDF_DOCUMENT_TYPES[$type])) {
+            throw new BusinessException('PDF证书类型不支持');
+        }
+
+        $product = $this->findOrFail($id);
+        $document = match ($type) {
+            'test-report' => TestReport::query()->where('product_id', $id)->first(),
+            'verification-cert' => VerificationCert::query()->where('product_id', $id)->first(),
+            'calibration-cert-logo', 'calibration-cert-no-logo' => CalibrationCert::query()->where('product_id', $id)->first(),
+        };
+
+        if ($document === null) {
+            throw new BusinessException('该产品尚未录入' . self::PDF_DOCUMENT_TYPES[$type]);
+        }
+
+        return [
+            'document_type' => $type,
+            'document_name' => self::PDF_DOCUMENT_TYPES[$type],
+            'product' => $product->toArray(),
+            'document' => $document->toArray(),
+        ];
     }
 
     /**
