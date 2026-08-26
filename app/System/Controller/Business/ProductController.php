@@ -61,6 +61,18 @@ class ProductController extends AbstractController
     }
 
     /**
+     * 复制产品及其已有报告/证书。
+     */
+    #[Permission('system:product:copy', '复制', sort: 7)]
+    public function copy(int $id, RequestInterface $request): ResponseInterface
+    {
+        $adminId = (int) $request->getAttribute('admin_id');
+        $result = $this->logic->copyProduct($id, $adminId);
+
+        return $this->success($result, '复制成功');
+    }
+
+    /**
      * 更新产品.
      */
     #[Scene(scene: 'update')]

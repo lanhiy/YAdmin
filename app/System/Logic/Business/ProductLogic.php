@@ -87,8 +87,6 @@ class ProductLogic
      */
     public function createProduct(array $data, int $adminId): array
     {
-        $this->assertInstrumentNoUnique((string) ($data['instrument_no'] ?? ''));
-
         $data['created_by'] = $adminId;
         $data['updated_by'] = $adminId;
 
@@ -98,13 +96,99 @@ class ProductLogic
     }
 
     /**
+     * 复制产品及其已有业务单据。
+     *
+     * 单据编号必须保持唯一，因此复制时为报告/证书编号追加副本时间；
+     * 器具编号不是唯一字段，复制产品时保留原编号。
+     */
+    public function copyProduct(int $id, int $adminId): array
+    {
+        $source = $this->findOrFail($id);
+        $suffix = date('YmdHisv');
+
+        $newProduct = Db::transaction(function () use ($source, $adminId, $suffix): Product {
+            $newProduct = Product::query()->create([
+                'instrument_name' => $this->appendCopySuffix((string) $source->instrument_name, $suffix, 100),
+                'instrument_no' => $source->instrument_no,
+                'model' => $source->model,
+                'manufacturer' => $source->manufacturer,
+                'remark' => $source->remark,
+                'sort' => $source->sort,
+                'created_by' => $adminId,
+                'updated_by' => $adminId,
+            ]);
+
+            $productId = (int) $newProduct->id;
+
+            $testReport = TestReport::query()->where('product_id', $source->id)->first();
+            if ($testReport !== null) {
+                TestReport::query()->create([
+                    'product_id' => $productId,
+                    'report_no' => $this->appendCopySuffix((string) $testReport->report_no, $suffix, 50, true),
+                    'client_name' => $testReport->client_name,
+                    'approver_sign_img' => $testReport->approver_sign_img,
+                    'reviewer_sign_img' => $testReport->reviewer_sign_img,
+                    'tester_sign_img' => $testReport->tester_sign_img,
+                    'test_date' => $testReport->test_date,
+                    'total_pages' => $testReport->total_pages,
+                    'remark' => $testReport->remark,
+                    'created_by' => $adminId,
+                    'updated_by' => $adminId,
+                ]);
+            }
+
+            $verificationCert = VerificationCert::query()->where('product_id', $source->id)->first();
+            if ($verificationCert !== null) {
+                VerificationCert::query()->create([
+                    'product_id' => $productId,
+                    'cert_no' => $this->appendCopySuffix((string) $verificationCert->cert_no, $suffix, 50, true),
+                    'submit_unit' => $verificationCert->submit_unit,
+                    'basis' => $verificationCert->basis,
+                    'conclusion' => $verificationCert->conclusion,
+                    'approver_sign_img' => $verificationCert->approver_sign_img,
+                    'reviewer_sign_img' => $verificationCert->reviewer_sign_img,
+                    'verifier_sign_img' => $verificationCert->verifier_sign_img,
+                    'verify_date' => $verificationCert->verify_date,
+                    'valid_until' => $verificationCert->valid_until,
+                    'total_pages' => $verificationCert->total_pages,
+                    'remark' => $verificationCert->remark,
+                    'created_by' => $adminId,
+                    'updated_by' => $adminId,
+                ]);
+            }
+
+            $calibrationCert = CalibrationCert::query()->where('product_id', $source->id)->first();
+            if ($calibrationCert !== null) {
+                CalibrationCert::query()->create([
+                    'product_id' => $productId,
+                    'cert_no' => $this->appendCopySuffix((string) $calibrationCert->cert_no, $suffix, 50, true),
+                    'client_name' => $calibrationCert->client_name,
+                    'address' => $calibrationCert->address,
+                    'approver_sign_img' => $calibrationCert->approver_sign_img,
+                    'reviewer_sign_img' => $calibrationCert->reviewer_sign_img,
+                    'calibrator_sign_img' => $calibrationCert->calibrator_sign_img,
+                    'receive_date' => $calibrationCert->receive_date,
+                    'calibrate_date' => $calibrationCert->calibrate_date,
+                    'issue_date' => $calibrationCert->issue_date,
+                    'total_pages' => $calibrationCert->total_pages,
+                    'remark' => $calibrationCert->remark,
+                    'created_by' => $adminId,
+                    'updated_by' => $adminId,
+                ]);
+            }
+
+            return $newProduct;
+        });
+
+        return $this->getProductById((int) $newProduct->id);
+    }
+
+    /**
      * 更新产品.
      */
     public function updateProduct(int $id, array $data, int $adminId): array
     {
         $product = $this->findOrFail($id);
-
-        $this->assertInstrumentNoUnique((string) ($data['instrument_no'] ?? ''), $id);
 
         unset($data['created_by']);
         $data['updated_by'] = $adminId;
@@ -193,23 +277,11 @@ class ProductLogic
         return $product;
     }
 
-    /**
-     * 校验器具编号唯一.
-     */
-    protected function assertInstrumentNoUnique(string $no, ?int $exceptId = null): void
+    private function appendCopySuffix(string $value, string $suffix, int $maxLength, bool $withSeparator = false): string
     {
-        if ($no === '') {
-            return;
-        }
+        $append = ($withSeparator ? '-' : '') . '副本' . $suffix;
+        $available = max(0, $maxLength - (function_exists('mb_strlen') ? mb_strlen($append) : strlen($append)));
 
-        $query = Product::query()->where('instrument_no', $no);
-
-        if ($exceptId !== null) {
-            $query->where('id', '<>', $exceptId);
-        }
-
-        if ($query->exists()) {
-            throw new BusinessException('器具编号已存在');
-        }
+        return (function_exists('mb_substr') ? mb_substr($value, 0, $available) : substr($value, 0, $available)) . $append;
     }
 }
