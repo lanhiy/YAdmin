@@ -36,6 +36,15 @@ class UserController extends AbstractController
     }
 
     /**
+     * 获取当前用户权限码（前端按钮级权限用）
+     */
+    public function accessCodes(RequestInterface $request): ResponseInterface
+    {
+        $adminId = (int) $request->getAttribute("admin_id");
+        return $this->success($this->logic->getUserAccessCodes($adminId));
+    }
+
+    /**
      * 获取个人资料
      */
     public function getProfile(RequestInterface $request): ResponseInterface

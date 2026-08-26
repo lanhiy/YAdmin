@@ -9,9 +9,13 @@ use App\Model\SystemAdmin;
 use App\Model\SystemAdminRole;
 use App\Model\SystemRole;
 use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 
 class AdminLogic
 {
+    #[Inject]
+    protected PermissionLogic $permissionLogic;
+
     /**
      * 获取用户列表（分页）
      */
@@ -265,6 +269,8 @@ class AdminLogic
             // 删除用户角色关联
             SystemAdminRole::query()->where('admin_id', $admin->id)->delete();
         });
+
+        $this->permissionLogic->flushAdminCache($id);
     }
 
     /**
@@ -284,6 +290,8 @@ class AdminLogic
 
         $admin->status = $status;
         $admin->save();
+
+        $this->permissionLogic->flushAdminCache($id);
     }
 
     /**
@@ -307,5 +315,8 @@ class AdminLogic
             }
             SystemAdminRole::query()->insert($data);
         }
+
+        // 用户角色变更立即生效
+        $this->permissionLogic->flushAdminCache($adminId);
     }
 }

@@ -5,10 +5,13 @@ namespace App\System\Logic;
 use App\Exception\BusinessException;
 use App\Model\SystemAdmin;
 use HyperfExtension\Jwt\Contracts\ManagerInterface;
-use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 
 class UserLogic
 {
+    #[Inject]
+    protected PermissionLogic $permissionLogic;
+
     protected $manager;
 
     public function __construct(
@@ -81,7 +84,7 @@ class UserLogic
         }
 
         return [
-            'roles' => [],
+            'roles' => $this->permissionLogic->getUserRoleCodes($adminId),
             'user_id'=>$user->getAttributes()['id'],
             'username' => $user->getAttributes()['username'],
             'realName' => $user->getAttributes()['nickname'],
@@ -91,6 +94,16 @@ class UserLogic
             'avatar' => $user->getAttributes()['avatar'],
             'gender' => $user->getAttributes()['gender'],
         ];
+    }
+
+    /**
+     * 获取当前用户的权限码列表（前端按钮级权限用）
+     *
+     * @return string[]
+     */
+    public function getUserAccessCodes(int $adminId): array
+    {
+        return $this->permissionLogic->getUserPermissionCodes($adminId);
     }
 
     /**

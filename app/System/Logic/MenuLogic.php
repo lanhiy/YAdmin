@@ -8,9 +8,13 @@ use App\Exception\BusinessException;
 use App\Model\SystemMenu;
 use App\Model\SystemAdminRole;
 use App\Model\SystemRoleMenu;
+use Hyperf\Di\Annotation\Inject;
 
 class MenuLogic
 {
+    #[Inject]
+    protected PermissionLogic $permissionLogic;
+
     /**
      * 获取菜单树（后台管理用）- 包含按钮类型
      */
@@ -47,36 +51,12 @@ class MenuLogic
 
     /**
      * 获取用户的按钮权限列表
+     *
+     * 与接口权限校验共用同一份数据，统一走 PermissionLogic 以复用缓存。
      */
     public function getUserButtonPermissions(int $adminId): array
     {
-        // ✅ 根据用户角色获取按钮权限
-        $menuIds = $this->getUserMenuIds($adminId);
-
-        // 获取用户有权限的启用按钮
-        $buttons = SystemMenu::query()
-            ->where('status', SystemMenu::STATUS_ENABLED)
-            ->where('type', SystemMenu::TYPE_BUTTON)
-            ->whereIn('id', $menuIds)
-            ->get(['id', 'name', 'title', 'authority', 'parent_id'])
-            ->toArray();
-
-        // 提取权限标识列表（返回扁平化的权限数组）
-        $permissions = [];
-        foreach ($buttons as $button) {
-            if (!empty($button['authority'])) {
-                // authority 是 JSON 数组，需要解析
-                $authorities = is_string($button['authority'])
-                    ? json_decode($button['authority'], true)
-                    : $button['authority'];
-
-                if (is_array($authorities)) {
-                    $permissions = array_merge($permissions, $authorities);
-                }
-            }
-        }
-
-        return array_values(array_unique($permissions));
+        return $this->permissionLogic->getUserPermissionCodes($adminId);
     }
 
     /**
@@ -244,8 +224,9 @@ class MenuLogic
         if ($menu->keep_alive) {
             $meta['keepAlive'] = true;
         }
-        if ($menu->authority && !empty($menu->authority)) {
-            $meta['authority'] = $menu->authority;
+        // 前端 RouteMeta.authority 约定为数组，这里把单值包一层
+        if (!empty($menu->authority)) {
+            $meta['authority'] = [$menu->authority];
         }
         if ($menu->ignore_access) {
             $meta['ignoreAccess'] = true;
@@ -328,10 +309,9 @@ class MenuLogic
      */
     public function createMenu(array $data): array
     {
+        $data['authority'] = $this->normalizeAuthority($data['authority'] ?? null);
+
         // 处理JSON字段
-        if (isset($data['authority']) && is_string($data['authority'])) {
-            $data['authority'] = json_decode($data['authority'], true);
-        }
         if (isset($data['query']) && is_string($data['query'])) {
             $data['query'] = json_decode($data['query'], true);
         }
@@ -341,6 +321,8 @@ class MenuLogic
         $data['sort'] = $data['sort'] ?? 0;
 
         $menu = SystemMenu::query()->create($data);
+
+        $this->permissionLogic->flushAllUserCache();
 
         return $menu->toArray();
     }
@@ -356,10 +338,11 @@ class MenuLogic
             throw new BusinessException('菜单不存在');
         }
 
-        // 处理JSON字段
-        if (isset($data['authority']) && is_string($data['authority'])) {
-            $data['authority'] = json_decode($data['authority'], true);
+        if (array_key_exists('authority', $data)) {
+            $data['authority'] = $this->normalizeAuthority($data['authority']);
         }
+
+        // 处理JSON字段
         if (isset($data['query']) && is_string($data['query'])) {
             $data['query'] = json_decode($data['query'], true);
         }
@@ -369,7 +352,30 @@ class MenuLogic
         // 刷新获取最新数据
         $menu->refresh();
 
+        $this->permissionLogic->flushAllUserCache();
+
         return $menu->toArray();
+    }
+
+    /**
+     * 归一化权限标识：兼容前端传数组的旧格式，统一存单个字符串
+     */
+    protected function normalizeAuthority(mixed $authority): ?string
+    {
+        if (is_array($authority)) {
+            $authority = $authority[0] ?? null;
+        } elseif (is_string($authority) && str_starts_with(trim($authority), '[')) {
+            $decoded = json_decode($authority, true);
+            $authority = is_array($decoded) ? ($decoded[0] ?? null) : $authority;
+        }
+
+        if (!is_string($authority)) {
+            return null;
+        }
+
+        $authority = trim($authority);
+
+        return $authority === '' ? null : $authority;
     }
 
     /**
@@ -392,7 +398,12 @@ class MenuLogic
             throw new BusinessException('该菜单存在子菜单或按钮权限，无法删除');
         }
 
+        // 删除角色对该菜单的授权，避免残留孤立关联
+        SystemRoleMenu::query()->where('menu_id', $id)->delete();
+
         $menu->delete();
+
+        $this->permissionLogic->flushAllUserCache();
     }
 
     /**
@@ -412,5 +423,8 @@ class MenuLogic
 
         $menu->status = $status;
         $menu->save();
+
+        // 停用按钮会影响权限判定，立即失效缓存
+        $this->permissionLogic->flushAllUserCache();
     }
 }

@@ -5,15 +5,17 @@ declare(strict_types=1);
 namespace App\System\Logic;
 
 use App\Exception\BusinessException;
-use App\Model\SystemMenu;
 use App\Model\SystemRole;
 use App\Model\SystemRoleMenu;
 use App\Model\SystemAdminRole;
-use Donjan\Casbin\Enforcer;
 use Hyperf\DbConnection\Db;
+use Hyperf\Di\Annotation\Inject;
 
 class RoleLogic
 {
+    #[Inject]
+    protected PermissionLogic $permissionLogic;
+
     /**
      * 获取角色列表（分页）
      */
@@ -192,6 +194,8 @@ class RoleLogic
             // 删除角色菜单关联
             SystemRoleMenu::query()->where('role_id', $role->id)->delete();
         });
+
+        $this->permissionLogic->flushRoleCache($id);
     }
 
     /**
@@ -212,10 +216,16 @@ class RoleLogic
 
         $role->status = $status;
         $role->save();
+
+        // 角色停用/启用会影响其下用户的权限，立即失效缓存
+        $this->permissionLogic->flushRoleCache($id);
     }
 
     /**
      * 同步角色菜单权限
+     *
+     * 角色的接口权限直接由这里的菜单关联派生（按钮菜单上的 authority），
+     * 不再额外维护权限表，因此只需要落 system_role_menu 并清缓存。
      */
     protected function syncRoleMenus(int $roleId, array $menuIds): void
     {
@@ -236,44 +246,7 @@ class RoleLogic
             SystemRoleMenu::query()->insert($data);
         }
 
-        // ✅ 同步 Casbin 权限（只同步按钮权限）
-        $this->syncCasbinPermissions($roleId, $menuIds);
-    }
-
-    /**
-     * 同步 Casbin 权限（只处理按钮权限）
-     */
-    protected function syncCasbinPermissions(int $roleId, array $menuIds): void
-    {
-        $role = SystemRole::query()->find($roleId);
-        if (!$role instanceof SystemRole) {
-            return;
-        }
-
-        $roleCode = $role->code; // 例如: admin, editor
-
-        // 1. 删除角色的所有权限
-        Enforcer::deletePermissionsForUser($roleCode);
-
-        // 2. 如果没有菜单权限，直接返回
-        if (empty($menuIds)) {
-            return;
-        }
-
-        // 3. 只获取按钮类型的菜单（type = 3）
-        $buttons = SystemMenu::query()
-            ->whereIn('id', $menuIds)
-            ->where('type', SystemMenu::TYPE_BUTTON) // 只查询按钮
-            ->where('status', SystemMenu::STATUS_ENABLED)
-            ->get(['id', 'authority'])
-            ->toArray();
-
-        // 4. 为角色添加按钮权限
-        foreach ($buttons as $button) {
-            if (!empty($button['authority'])) {
-                // authority 格式: system:admin:edit
-                Enforcer::addPermissionForUser($roleCode, $button['authority'], '*');
-            }
-        }
+        // 权限变更立即生效
+        $this->permissionLogic->flushRoleCache($roleId);
     }
 }

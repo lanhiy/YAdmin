@@ -17,6 +17,7 @@ Router::get('/system/config', [App\System\Controller\ConfigController::class, 'a
 Router::addGroup('/system', function () {
     // 用户相关
     Router::get('/user/info', [App\System\Controller\UserController::class, 'userInfo']);
+    Router::get('/user/access-codes', [App\System\Controller\UserController::class, 'accessCodes']);
     Router::post('/user/logout', [App\System\Controller\UserController::class, 'logout']);
 
     // 个人中心路由

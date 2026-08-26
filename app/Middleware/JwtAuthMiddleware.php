@@ -6,9 +6,7 @@ namespace App\Middleware;
 
 use App\Constants\ErrorCode;
 use App\Exception\JwtAuthException;
-use App\Model\SystemAdmin;
-use App\Model\SystemAdminRole;
-use Donjan\Casbin\Enforcer;
+use App\System\Logic\PermissionLogic;
 use HyperfExtension\Jwt\Contracts\JwtFactoryInterface;
 use HyperfExtension\Jwt\Exceptions\JwtException;
 use HyperfExtension\Jwt\Exceptions\TokenExpiredException;
@@ -17,25 +15,14 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Hyperf\Context\Context;
-use Hyperf\Redis\Redis;
 use Hyperf\Di\Annotation\Inject;
 
 class JwtAuthMiddleware implements MiddlewareInterface
 {
     #[Inject]
-    protected Redis $redis;
+    protected PermissionLogic $permissionLogic;
 
     protected JwtFactoryInterface $jwtFactory;
-
-    // 白名单路径（不需要权限检查的接口）
-    protected array $whitelist = [
-        '/system/user/info',
-        '/system/user/logout',
-        '/system/menu/routes',
-        '/system/menu/list',
-        '/system/profile',
-    ];
 
     public function __construct(JwtFactoryInterface $jwtFactory)
     {
@@ -64,8 +51,8 @@ class JwtAuthMiddleware implements MiddlewareInterface
                 ->withAttribute('username', $username)
                 ->withAttribute('nickname', $payload->get('nickname'));
 
-            // ✅ 权限检查（只检查按钮权限）
-            $this->checkPermission($request, $adminId);
+            // 接口权限校验
+            $this->checkPermission($request, (int) $adminId);
 
             return $handler->handle($request);
 
@@ -93,177 +80,44 @@ class JwtAuthMiddleware implements MiddlewareInterface
     }
 
     /**
-     * 检查权限（只检查按钮权限 authority）
+     * 接口权限校验.
+     *
+     * 权限要求来自 system_route_permission 表；未登记的接口一律拒绝，
+     * 确保新增接口不会因为漏配而处于无保护状态。
      */
     protected function checkPermission(ServerRequestInterface $request, int $adminId): void
     {
         $path = $request->getUri()->getPath();
+        $route = $this->permissionLogic->resolveRoute($path, $request->getMethod());
 
-        // 白名单路径，直接通过
-        if ($this->isWhitelist($path)) {
-            return;
-        }
-
-        // ✅ 从 Redis 缓存获取用户角色（减少数据库查询）
-        $cacheKey = "user:roles:$adminId";
-        $userRoles = $this->redis->get($cacheKey);
-
-        // ❌ 原来的代码：
-        // if ($userRoles === null) {
-
-        // ✅ 修复：Redis 不存在返回 false，需要同时判断 false 和 null
-        if ($userRoles === null || $userRoles === false) {
-            // 缓存不存在，从数据库查询
-            $userRoles = $this->getUserRoles($adminId);
-            // 缓存 30 分钟
-            $this->redis->setex($cacheKey, 1800, json_encode($userRoles));
-        } else {
-            // ✅ 在解码前确保是字符串
-            $userRoles = json_decode($userRoles, true);
-            // ✅ 添加 JSON 解析错误处理
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                // JSON 解析失败，重新从数据库获取
-                $userRoles = $this->getUserRoles($adminId);
-                $this->redis->setex($cacheKey, 1800, json_encode($userRoles));
-            }
-        }
-
-        // 超级管理员直接通过
-        if ($userRoles['is_super'] ?? false) {
-            return;
-        }
-
-        $roleCodes = $userRoles['roles'] ?? [];
-        if (empty($roleCodes)) {
+        // 未登记的接口：拒绝访问，避免漏配导致接口失去保护
+        if ($route === null) {
             throw new JwtAuthException(
                 ErrorCode::FORBIDDEN,
-                '您没有访问权限',
+                '该接口未配置访问权限，请联系管理员',
                 403
             );
         }
 
-        // ✅ 获取路由对应的 authority（从路由注解或配置中获取）
-        $authority = $this->getRouteAuthority($path);
-
-        // 如果路由没有配置 authority，说明不需要特殊权限，直接通过
-        if (empty($authority)) {
+        // 仅需登录即可访问
+        if ($route['is_public']) {
             return;
         }
 
-        // ✅ 检查用户角色是否有该 authority 权限
-        $hasPermission = false;
-        foreach ($roleCodes as $roleCode) {
-            if (Enforcer::enforce($roleCode, $authority, '*')) {
-                $hasPermission = true;
-                break;
-            }
+        // 超级管理员拥有全部权限
+        if ($this->permissionLogic->isSuperAdmin($adminId)) {
+            return;
         }
 
-        if (!$hasPermission) {
+        $code = (string) $route['authority'];
+
+        if ($code === '' || ! $this->permissionLogic->hasPermission($adminId, $code)) {
             throw new JwtAuthException(
                 ErrorCode::FORBIDDEN,
-                "您没有权限执行此操作 [$authority]",
+                $code === '' ? '该接口未配置访问权限，请联系管理员' : "您没有权限执行此操作 [$code]",
                 403
             );
         }
     }
 
-    /**
-     * 从 Redis 获取用户角色信息
-     */
-    protected function getUserRoles(int $adminId): array
-    {
-        // 这里可以用你的 AdminLogic 或者直接查询
-        $admin = SystemAdmin::query()
-            ->select(['id'])
-            ->find($adminId);
-
-        if (!$admin) {
-            return ['is_super' => false, 'roles' => []];
-        }
-
-        if ($admin->id == 1) {
-            return ['is_super' => true, 'roles' => []];
-        }
-
-        // 获取用户角色编码
-        $roleCodes = SystemAdminRole::query()
-            ->where('admin_id', $adminId)
-            ->join('system_role', 'system_admin_role.role_id', '=', 'system_role.id')
-            ->where('system_role.status', 1)
-            ->pluck('system_role.code')
-            ->toArray();
-
-        return [
-            'is_super' => false,
-            'roles' => $roleCodes,
-        ];
-    }
-
-    /**
-     * 获取路由对应的 authority
-     */
-    protected function getRouteAuthority(string $path): ?string
-    {
-        // ✅ 路由与 authority 的映射配置
-        $routeAuthorityMap = [
-            // 用户管理
-            '/system/admin'         => 'system:admin:add',
-            '/system/admin/list'    => 'system:admin:list',
-
-            // 角色管理
-            '/system/role'          => 'system:role:add',
-            '/system/role/list'     => 'system:role:list',
-
-            // 菜单管理
-            '/system/menu'          => 'system:menu:add',
-            '/system/menu/list'     => null, // 不需要权限
-
-            // 配置管理
-            '/system/config/update' => 'system:config:edit',
-            '/system/config/list'   => 'system:config:list',
-
-            // 证书管理
-            '/system/business/certificate'      => 'system:certificate:add',
-            '/system/business/certificate/list' => 'system:certificate:list',
-        ];
-
-        // 处理动态路由（如 /system/admin/123）
-        foreach ($routeAuthorityMap as $pattern => $authority) {
-            if (str_starts_with($path, $pattern)) {
-                // 精确匹配
-                if ($path === $pattern) {
-                    return $authority;
-                }
-
-                // 动态路由匹配（如 PUT /system/admin/123）
-                if (preg_match('#^' . $pattern . '/\d+$#', $path)) {
-                    // 根据 HTTP 方法判断
-                    $method = Context::get(ServerRequestInterface::class)->getMethod();
-                    if ($method === 'PUT') {
-                        return str_replace(':add', ':edit', $authority);
-                    } elseif ($method === 'DELETE') {
-                        return str_replace(':add', ':delete', $authority);
-                    } elseif ($method === 'GET') {
-                        return str_replace(':add', ':view', $authority);
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * 判断是否在白名单中
-     */
-    protected function isWhitelist(string $path): bool
-    {
-        foreach ($this->whitelist as $pattern) {
-            if (str_starts_with($path, $pattern)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

@@ -22,7 +22,7 @@ namespace App\Model;
  * @property int $hide_in_breadcrumb 是否在面包屑中隐藏：0-否，1-是
  * @property int $hide_children_in_menu 是否隐藏子菜单：0-否，1-是
  * @property int $keep_alive 是否缓存页面：0-否，1-是
- * @property string $authority 权限标识数组，如：["sys:user:view"]
+ * @property null|string $authority 权限标识，如：system:menu:list（仅按钮类型使用）
  * @property int $ignore_access 是否忽略权限：0-否，1-是
  * @property int $menu_visible_with_forbidden 菜单可见但访问403：0-否，1-是
  * @property string $badge 徽标文本
