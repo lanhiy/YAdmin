@@ -53,6 +53,12 @@ Router::addGroup('/system', function () {
         Router::post('/change-status', [App\System\Controller\RoleController::class, 'changeStatus']);
     });
 
+    // 权限点路由（角色授权界面的数据源）
+    Router::addGroup('/permission', function () {
+        Router::get('/tree', [App\System\Controller\PermissionController::class, 'tree']);
+        Router::get('/list', [App\System\Controller\PermissionController::class, 'list']);
+    });
+
     // 用户管理路由
     Router::addGroup('/admin', function () {
         Router::get('/list', [App\System\Controller\AdminController::class, 'list']);
