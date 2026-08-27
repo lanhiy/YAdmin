@@ -71,7 +71,7 @@ class ProductLogic
     }
 
     /**
-     * 获取产品详情（带三张子表数据）.
+     * 获取产品详情（带三类证书数据）.
      */
     public function getProductById(int $id): array
     {
@@ -189,6 +189,7 @@ class ProductLogic
                 ProductCertificate::query()->create([
                     'product_id' => $productId,
                     'certificate_type' => ProductCertificate::TYPE_TEST_REPORT,
+                    'public_token' => ProductCertificate::generatePublicToken(),
                     'certificate_no' => $this->appendCopySuffix((string) $testReport->certificate_no, $suffix, 50, true),
                     'client_name' => $testReport->client_name,
                     'approver_sign_img' => $testReport->approver_sign_img,
@@ -207,6 +208,7 @@ class ProductLogic
                 ProductCertificate::query()->create([
                     'product_id' => $productId,
                     'certificate_type' => ProductCertificate::TYPE_VERIFICATION_CERT,
+                    'public_token' => ProductCertificate::generatePublicToken(),
                     'certificate_no' => $this->appendCopySuffix((string) $verificationCert->certificate_no, $suffix, 50, true),
                     'submit_unit' => $verificationCert->submit_unit,
                     'basis' => $verificationCert->basis,
@@ -228,6 +230,7 @@ class ProductLogic
                 ProductCertificate::query()->create([
                     'product_id' => $productId,
                     'certificate_type' => ProductCertificate::TYPE_CALIBRATION_CERT,
+                    'public_token' => ProductCertificate::generatePublicToken(),
                     'certificate_no' => $this->appendCopySuffix((string) $calibrationCert->certificate_no, $suffix, 50, true),
                     'client_name' => $calibrationCert->client_name,
                     'address' => $calibrationCert->address,
@@ -268,14 +271,14 @@ class ProductLogic
     }
 
     /**
-     * 删除产品，同时级联删除三张子表数据.
+     * 删除产品，同时级联删除该产品的三类证书数据.
      */
     public function deleteProduct(int $id): void
     {
         $product = $this->findOrFail($id);
 
-        // 三张子表与产品都启用了软删除，这里的 delete() 均为标记删除，
-        // 数据可追溯；子表的全局作用域会自动过滤已删除记录。
+        // 统一证书表与产品都启用了软删除，这里的 delete() 是标记删除，
+        // 数据可追溯；模型的全局作用域会自动过滤已删除记录。
         Db::transaction(static function () use ($product, $id) {
             ProductCertificate::query()->where('product_id', $id)->delete();
             $product->delete();
@@ -284,7 +287,7 @@ class ProductLogic
 
 
     /**
-     * 批量补充创建人/更新人昵称与三张子表的录入标记.
+     * 批量补充创建人/更新人昵称与三类证书的录入标记.
      */
     protected function appendListExtra(array $list): array
     {

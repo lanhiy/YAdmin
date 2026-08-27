@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Model;
 
-use Carbon\Carbon;
 use Hyperf\Database\Model\Relations\BelongsTo;
 use Hyperf\Database\Model\SoftDeletes;
 
@@ -61,24 +60,15 @@ class ProductCertificate extends Model
         'total_pages' => 'integer',
         'created_by' => 'integer',
         'updated_by' => 'integer',
-        'test_date' => 'date:Y-m-d',
-        'verify_date' => 'date:Y-m-d',
-        'valid_until' => 'date:Y-m-d',
-        'receive_date' => 'date:Y-m-d',
-        'calibrate_date' => 'date:Y-m-d',
-        'issue_date' => 'date:Y-m-d',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 
-    protected static function booted(): void
+    /** Generate the public URL token kept with each certificate record. */
+    public static function generatePublicToken(): string
     {
-        static::creating(static function (ProductCertificate $certificate): void {
-            if (! is_string($certificate->public_token) || $certificate->public_token === '') {
-                $certificate->public_token = bin2hex(random_bytes(16));
-            }
-        });
+        return bin2hex(random_bytes(16));
     }
 
     public function product(): BelongsTo

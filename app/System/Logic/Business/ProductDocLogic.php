@@ -14,7 +14,7 @@ use Hyperf\DbConnection\Db;
 /**
  * 产品单据（测试报告/检定证书/校准证书）通用逻辑.
  *
- * 三张子表与 product 都是一对一，CRUD 流程完全一致，
+ * 三类单据与 product 都是一对一，CRUD 流程完全一致，
  * 差异只有：模型类、业务编号字段、单据名称。子类只需声明这三项。
  */
 abstract class ProductDocLogic
@@ -74,6 +74,7 @@ abstract class ProductDocLogic
 
         $data = $this->fromApiData($data);
         $data['certificate_type'] = $this->certificateType();
+        $data['public_token'] = ProductCertificate::generatePublicToken();
 
         $data['created_by'] = $adminId;
         $data['updated_by'] = $adminId;
