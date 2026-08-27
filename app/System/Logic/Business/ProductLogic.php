@@ -8,6 +8,7 @@ use App\Exception\BusinessException;
 use App\Model\Product;
 use App\Model\ProductCertificate;
 use App\Model\SystemAdmin;
+use App\Model\SystemConfig;
 use Hyperf\DbConnection\Db;
 
 class ProductLogic
@@ -140,7 +141,7 @@ class ProductLogic
             'document_name' => self::PDF_DOCUMENT_TYPES[$type],
             'certificate_id' => $certificateId,
             'public_token' => $publicToken,
-            'url' => '/certificate/' . $publicToken,
+            'url' => $this->buildCertificateUrl($publicToken),
             'product' => $product->toArray(),
             'document' => $documentData,
         ];
@@ -370,6 +371,35 @@ class ProductLogic
         return ProductCertificate::query()
             ->where('product_id', $productId)
             ->where('certificate_type', $type);
+    }
+
+    /**
+     * 生成证书公开查询地址。
+     */
+    private function buildCertificateUrl(string $publicToken): string
+    {
+        $configValue = SystemConfig::query()
+            ->where('config_key', 'app_host')
+            ->where('status', SystemConfig::STATUS_ENABLED)
+            ->value('config_value');
+
+        if ($configValue === null) {
+            throw new BusinessException('请先在系统配置中配置证书公开查询地址 Host');
+        }
+
+        $decodedValue = json_decode((string) $configValue, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $host = is_scalar($decodedValue) ? (string) $decodedValue : '';
+        } else {
+            $host = (string) $configValue;
+        }
+        $host = trim($host);
+
+        if ($host === '') {
+            throw new BusinessException('请先在系统配置中配置证书公开查询地址 Host');
+        }
+
+        return rtrim($host, '/') . '/certificate/' . $publicToken;
     }
 
     private function certificateToApi(?array $data, string $noField): ?array
