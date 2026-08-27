@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace App\System\Logic\Business;
 
 use App\Exception\BusinessException;
-use App\Model\CalibrationCert;
 use App\Model\Product;
+use App\Model\ProductCertificate;
 use App\Model\SystemAdmin;
-use App\Model\TestReport;
-use App\Model\VerificationCert;
 use Hyperf\DbConnection\Db;
 
 class ProductLogic
@@ -80,9 +78,18 @@ class ProductLogic
         $product = $this->findOrFail($id);
 
         $data = $product->toArray();
-        $data['test_report'] = TestReport::query()->where('product_id', $id)->first()?->toArray();
-        $data['verification_cert'] = VerificationCert::query()->where('product_id', $id)->first()?->toArray();
-        $data['calibration_cert'] = CalibrationCert::query()->where('product_id', $id)->first()?->toArray();
+        $data['test_report'] = $this->certificateToApi(
+            $this->certificateQuery($id, ProductCertificate::TYPE_TEST_REPORT)->first()?->toArray(),
+            'report_no',
+        );
+        $data['verification_cert'] = $this->certificateToApi(
+            $this->certificateQuery($id, ProductCertificate::TYPE_VERIFICATION_CERT)->first()?->toArray(),
+            'cert_no',
+        );
+        $data['calibration_cert'] = $this->certificateToApi(
+            $this->certificateQuery($id, ProductCertificate::TYPE_CALIBRATION_CERT)->first()?->toArray(),
+            'cert_no',
+        );
         $data['has_test_report'] = $data['test_report'] !== null;
         $data['has_verification_cert'] = $data['verification_cert'] !== null;
         $data['has_calibration_cert'] = $data['calibration_cert'] !== null;
@@ -96,28 +103,46 @@ class ProductLogic
      * 四种模板中两种校准证书都读取 calibration_cert，模板差异只由
      * document_type 决定。未录入对应单据时明确报错，避免生成空白文件。
      */
-    public function getPdfData(int $id, string $type): array
+    public function getPdfData(int $certificateId, string $type): array
     {
         if (! isset(self::PDF_DOCUMENT_TYPES[$type])) {
             throw new BusinessException('PDF证书类型不支持');
         }
 
-        $product = $this->findOrFail($id);
         $document = match ($type) {
-            'test-report' => TestReport::query()->where('product_id', $id)->first(),
-            'verification-cert' => VerificationCert::query()->where('product_id', $id)->first(),
-            'calibration-cert-logo', 'calibration-cert-no-logo' => CalibrationCert::query()->where('product_id', $id)->first(),
+            'test-report' => ProductCertificate::query()
+                ->where('certificate_type', ProductCertificate::TYPE_TEST_REPORT)
+                ->whereKey($certificateId)
+                ->first(),
+            'verification-cert' => ProductCertificate::query()
+                ->where('certificate_type', ProductCertificate::TYPE_VERIFICATION_CERT)
+                ->whereKey($certificateId)
+                ->first(),
+            'calibration-cert-logo', 'calibration-cert-no-logo' => ProductCertificate::query()
+                ->where('certificate_type', ProductCertificate::TYPE_CALIBRATION_CERT)
+                ->whereKey($certificateId)
+                ->first(),
         };
 
         if ($document === null) {
-            throw new BusinessException('该产品尚未录入' . self::PDF_DOCUMENT_TYPES[$type]);
+            throw new BusinessException(self::PDF_DOCUMENT_TYPES[$type] . '不存在');
         }
+
+        $product = $this->findOrFail((int) $document->product_id);
+        $publicToken = (string) $document->public_token;
+        $documentData = $this->certificateToApi(
+            $document->toArray(),
+            $type === 'test-report' ? 'report_no' : 'cert_no',
+        );
 
         return [
             'document_type' => $type,
             'document_name' => self::PDF_DOCUMENT_TYPES[$type],
+            'certificate_id' => $certificateId,
+            'public_token' => $publicToken,
+            'url' => '/certificate/' . $publicToken,
             'product' => $product->toArray(),
-            'document' => $document->toArray(),
+            'document' => $documentData,
         ];
     }
 
@@ -159,11 +184,12 @@ class ProductLogic
 
             $productId = (int) $newProduct->id;
 
-            $testReport = TestReport::query()->where('product_id', $source->id)->first();
+            $testReport = $this->certificateQuery((int) $source->id, ProductCertificate::TYPE_TEST_REPORT)->first();
             if ($testReport !== null) {
-                TestReport::query()->create([
+                ProductCertificate::query()->create([
                     'product_id' => $productId,
-                    'report_no' => $this->appendCopySuffix((string) $testReport->report_no, $suffix, 50, true),
+                    'certificate_type' => ProductCertificate::TYPE_TEST_REPORT,
+                    'certificate_no' => $this->appendCopySuffix((string) $testReport->certificate_no, $suffix, 50, true),
                     'client_name' => $testReport->client_name,
                     'approver_sign_img' => $testReport->approver_sign_img,
                     'reviewer_sign_img' => $testReport->reviewer_sign_img,
@@ -176,11 +202,12 @@ class ProductLogic
                 ]);
             }
 
-            $verificationCert = VerificationCert::query()->where('product_id', $source->id)->first();
+            $verificationCert = $this->certificateQuery((int) $source->id, ProductCertificate::TYPE_VERIFICATION_CERT)->first();
             if ($verificationCert !== null) {
-                VerificationCert::query()->create([
+                ProductCertificate::query()->create([
                     'product_id' => $productId,
-                    'cert_no' => $this->appendCopySuffix((string) $verificationCert->cert_no, $suffix, 50, true),
+                    'certificate_type' => ProductCertificate::TYPE_VERIFICATION_CERT,
+                    'certificate_no' => $this->appendCopySuffix((string) $verificationCert->certificate_no, $suffix, 50, true),
                     'submit_unit' => $verificationCert->submit_unit,
                     'basis' => $verificationCert->basis,
                     'conclusion' => $verificationCert->conclusion,
@@ -196,11 +223,12 @@ class ProductLogic
                 ]);
             }
 
-            $calibrationCert = CalibrationCert::query()->where('product_id', $source->id)->first();
+            $calibrationCert = $this->certificateQuery((int) $source->id, ProductCertificate::TYPE_CALIBRATION_CERT)->first();
             if ($calibrationCert !== null) {
-                CalibrationCert::query()->create([
+                ProductCertificate::query()->create([
                     'product_id' => $productId,
-                    'cert_no' => $this->appendCopySuffix((string) $calibrationCert->cert_no, $suffix, 50, true),
+                    'certificate_type' => ProductCertificate::TYPE_CALIBRATION_CERT,
+                    'certificate_no' => $this->appendCopySuffix((string) $calibrationCert->certificate_no, $suffix, 50, true),
                     'client_name' => $calibrationCert->client_name,
                     'address' => $calibrationCert->address,
                     'approver_sign_img' => $calibrationCert->approver_sign_img,
@@ -249,9 +277,7 @@ class ProductLogic
         // 三张子表与产品都启用了软删除，这里的 delete() 均为标记删除，
         // 数据可追溯；子表的全局作用域会自动过滤已删除记录。
         Db::transaction(static function () use ($product, $id) {
-            TestReport::query()->where('product_id', $id)->delete();
-            VerificationCert::query()->where('product_id', $id)->delete();
-            CalibrationCert::query()->where('product_id', $id)->delete();
+            ProductCertificate::query()->where('product_id', $id)->delete();
             $product->delete();
         });
     }
@@ -268,9 +294,21 @@ class ProductLogic
 
         $productIds = array_column($list, 'id');
 
-        $reportIds = TestReport::query()->whereIn('product_id', $productIds)->pluck('id', 'product_id')->toArray();
-        $verifyIds = VerificationCert::query()->whereIn('product_id', $productIds)->pluck('id', 'product_id')->toArray();
-        $calibIds = CalibrationCert::query()->whereIn('product_id', $productIds)->pluck('id', 'product_id')->toArray();
+        $reportIds = ProductCertificate::query()
+            ->whereIn('product_id', $productIds)
+            ->where('certificate_type', ProductCertificate::TYPE_TEST_REPORT)
+            ->pluck('id', 'product_id')
+            ->toArray();
+        $verifyIds = ProductCertificate::query()
+            ->whereIn('product_id', $productIds)
+            ->where('certificate_type', ProductCertificate::TYPE_VERIFICATION_CERT)
+            ->pluck('id', 'product_id')
+            ->toArray();
+        $calibIds = ProductCertificate::query()
+            ->whereIn('product_id', $productIds)
+            ->where('certificate_type', ProductCertificate::TYPE_CALIBRATION_CERT)
+            ->pluck('id', 'product_id')
+            ->toArray();
 
         $adminIds = [];
         foreach ($list as $item) {
@@ -322,5 +360,24 @@ class ProductLogic
         $available = max(0, $maxLength - (function_exists('mb_strlen') ? mb_strlen($append) : strlen($append)));
 
         return (function_exists('mb_substr') ? mb_substr($value, 0, $available) : substr($value, 0, $available)) . $append;
+    }
+
+    private function certificateQuery(int $productId, int $type)
+    {
+        return ProductCertificate::query()
+            ->where('product_id', $productId)
+            ->where('certificate_type', $type);
+    }
+
+    private function certificateToApi(?array $data, string $noField): ?array
+    {
+        if ($data === null) {
+            return null;
+        }
+
+        $data[$noField] = (string) ($data['certificate_no'] ?? '');
+        unset($data['certificate_no'], $data['certificate_type']);
+
+        return $data;
     }
 }

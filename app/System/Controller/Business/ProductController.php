@@ -78,11 +78,11 @@ class ProductController extends AbstractController
      * 当前只负责取数，实际 PDF 文件生成在后续模板接入后完成。
      */
     #[Permission('system:product:generatePdf', '生成PDF', sort: 8)]
-    public function pdfData(int $id, RequestInterface $request): ResponseInterface
+    public function pdfData(int $certificateId, RequestInterface $request): ResponseInterface
     {
         $type = trim((string) $request->input('type', ''));
 
-        return $this->success($this->logic->getPdfData($id, $type), '证书数据获取成功');
+        return $this->success($this->logic->getPdfData($certificateId, $type), '证书数据获取成功');
     }
 
     /**

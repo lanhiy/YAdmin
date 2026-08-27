@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\System\Logic\Business;
 
-use App\Model\CalibrationCert;
+use App\Model\ProductCertificate;
 
 /**
  * 校准证书逻辑，CRUD 全部复用 ProductDocLogic.
@@ -13,7 +13,12 @@ class CalibrationCertLogic extends ProductDocLogic
 {
     protected function modelClass(): string
     {
-        return CalibrationCert::class;
+        return ProductCertificate::class;
+    }
+
+    protected function certificateType(): int
+    {
+        return ProductCertificate::TYPE_CALIBRATION_CERT;
     }
 
     protected function noField(): string

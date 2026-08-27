@@ -23,9 +23,9 @@ use Hyperf\Database\Model\Relations\HasOne;
  * @property int $updated_by 更新人ID
  * @property Carbon $created_at 创建时间
  * @property Carbon $updated_at 更新时间
- * @property null|TestReport $testReport 测试报告
- * @property null|VerificationCert $verificationCert 检定证书
- * @property null|CalibrationCert $calibrationCert 校准证书
+ * @property null|ProductCertificate $testReport 测试报告
+ * @property null|ProductCertificate $verificationCert 检定证书
+ * @property null|ProductCertificate $calibrationCert 校准证书
  */
 class Product extends Model
 {
@@ -51,7 +51,8 @@ class Product extends Model
      */
     public function testReport(): HasOne
     {
-        return $this->hasOne(TestReport::class, 'product_id', 'id');
+        return $this->hasOne(ProductCertificate::class, 'product_id', 'id')
+            ->where('certificate_type', ProductCertificate::TYPE_TEST_REPORT);
     }
 
     /**
@@ -59,7 +60,8 @@ class Product extends Model
      */
     public function verificationCert(): HasOne
     {
-        return $this->hasOne(VerificationCert::class, 'product_id', 'id');
+        return $this->hasOne(ProductCertificate::class, 'product_id', 'id')
+            ->where('certificate_type', ProductCertificate::TYPE_VERIFICATION_CERT);
     }
 
     /**
@@ -67,6 +69,7 @@ class Product extends Model
      */
     public function calibrationCert(): HasOne
     {
-        return $this->hasOne(CalibrationCert::class, 'product_id', 'id');
+        return $this->hasOne(ProductCertificate::class, 'product_id', 'id')
+            ->where('certificate_type', ProductCertificate::TYPE_CALIBRATION_CERT);
     }
 }

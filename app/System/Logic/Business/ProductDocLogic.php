@@ -6,6 +6,7 @@ namespace App\System\Logic\Business;
 
 use App\Exception\BusinessException;
 use App\Model\Product;
+use App\Model\ProductCertificate;
 use App\Model\SystemAdmin;
 use Hyperf\Database\Model\Builder;
 use Hyperf\DbConnection\Db;
@@ -35,6 +36,9 @@ abstract class ProductDocLogic
      */
     abstract protected function docName(): string;
 
+    /** 统一证书表中的类型值。 */
+    abstract protected function certificateType(): int;
+
     /**
      * 按产品ID获取单据，不存在返回 null（前端据此决定新增还是编辑）.
      */
@@ -42,7 +46,7 @@ abstract class ProductDocLogic
     {
         $doc = $this->query()->where('product_id', $productId)->first();
 
-        return $doc === null ? null : $this->withExtra($doc->toArray());
+        return $doc === null ? null : $this->toApiData($this->withExtra($doc->toArray()));
     }
 
     /**
@@ -50,7 +54,7 @@ abstract class ProductDocLogic
      */
     public function getById(int $id): array
     {
-        return $this->withExtra($this->findOrFail($id)->toArray());
+        return $this->toApiData($this->withExtra($this->findOrFail($id)->toArray()));
     }
 
     /**
@@ -68,13 +72,16 @@ abstract class ProductDocLogic
 
         $this->assertNoUnique((string) ($data[$this->noField()] ?? ''));
 
+        $data = $this->fromApiData($data);
+        $data['certificate_type'] = $this->certificateType();
+
         $data['created_by'] = $adminId;
         $data['updated_by'] = $adminId;
 
         return Db::transaction(function () use ($data) {
             $model = $this->modelClass();
 
-            return $model::query()->create($data)->toArray();
+            return $this->toApiData($this->withExtra($model::query()->create($data)->toArray()));
         });
     }
 
@@ -87,6 +94,8 @@ abstract class ProductDocLogic
 
         $this->assertNoUnique((string) ($data[$this->noField()] ?? ''), $id);
 
+        $data = $this->fromApiData($data);
+
         // 产品归属和创建人不允许改
         unset($data['product_id'], $data['created_by']);
         $data['updated_by'] = $adminId;
@@ -94,7 +103,7 @@ abstract class ProductDocLogic
         return Db::transaction(function () use ($doc, $data) {
             $doc->update($data);
 
-            return $doc->toArray();
+            return $this->toApiData($this->withExtra($doc->refresh()->toArray()));
         });
     }
 
@@ -114,7 +123,7 @@ abstract class ProductDocLogic
     {
         $model = $this->modelClass();
 
-        return $model::query();
+        return $model::query()->where('certificate_type', $this->certificateType());
     }
 
     /**
@@ -150,7 +159,7 @@ abstract class ProductDocLogic
             return;
         }
 
-        $query = $this->query()->where($this->noField(), $no);
+        $query = $this->query()->where('certificate_no', $no);
 
         if ($exceptId !== null) {
             $query->where('id', '<>', $exceptId);
@@ -183,6 +192,25 @@ abstract class ProductDocLogic
 
         $data['created_by_name'] = $nameMap[$data['created_by']] ?? '';
         $data['updated_by_name'] = $nameMap[$data['updated_by']] ?? '';
+
+        return $data;
+    }
+
+    /** 将统一表字段映射回原有三类接口字段。 */
+    protected function toApiData(array $data): array
+    {
+        $data[$this->noField()] = (string) ($data['certificate_no'] ?? '');
+        unset($data['certificate_no'], $data['certificate_type']);
+
+        return $data;
+    }
+
+    /** 将原有接口字段转换为统一表字段。 */
+    protected function fromApiData(array $data): array
+    {
+        $data['certificate_no'] = (string) ($data[$this->noField()] ?? '');
+        // 公开令牌由服务端生成且不可通过业务表单修改。
+        unset($data['report_no'], $data['cert_no'], $data['id'], $data['certificate_type'], $data['public_token']);
 
         return $data;
     }

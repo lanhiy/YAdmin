@@ -7,6 +7,7 @@ use App\Middleware\PermissionMiddleware;
 use Hyperf\HttpServer\Router\Router;
 
 Router::addRoute(['GET', 'POST', 'HEAD'], '/', [App\Controller\IndexController::class, 'index']);
+Router::get('/certificate/{token:[a-fA-F0-9]{32}}', [App\Controller\IndexController::class, 'certificate']);
 
 // ========== 不需要认证的路由 ==========
 Router::post('/system/login', [App\System\Controller\UserController::class, 'login']);
@@ -93,7 +94,7 @@ Router::addGroup('/system', function () {
         Router::get('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'show']);
         Router::post('', [App\System\Controller\Business\ProductController::class, 'store']);
         Router::post('/copy/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'copy']);
-        Router::post('/pdf-data/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'pdfData']);
+        Router::post('/pdf-data/{certificateId:\d+}', [App\System\Controller\Business\ProductController::class, 'pdfData']);
         Router::put('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'update']);
         Router::delete('/{id:\d+}', [App\System\Controller\Business\ProductController::class, 'destroy']);
     });
