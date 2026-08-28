@@ -17,8 +17,8 @@ class ProductLogic
     private const PDF_DOCUMENT_TYPES = [
         'test-report' => '测试报告',
         'verification-cert' => '检定证书',
-        'calibration-cert-logo' => '校准证书（带LOGO）',
-        'calibration-cert-no-logo' => '校准证书（无LOGO）',
+        'calibration-cert-cnas' => '校准证书（带CNAS）',
+        'calibration-cert-no-cnas' => '校准证书（不带CNAS）',
     ];
 
     /**
@@ -119,7 +119,7 @@ class ProductLogic
                 ->where('certificate_type', ProductCertificate::TYPE_VERIFICATION_CERT)
                 ->whereKey($certificateId)
                 ->first(),
-            'calibration-cert-logo', 'calibration-cert-no-logo' => ProductCertificate::query()
+            'calibration-cert-cnas', 'calibration-cert-no-cnas' => ProductCertificate::query()
                 ->where('certificate_type', ProductCertificate::TYPE_CALIBRATION_CERT)
                 ->whereKey($certificateId)
                 ->first(),
