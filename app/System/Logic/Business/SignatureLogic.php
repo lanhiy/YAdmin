@@ -28,7 +28,20 @@ class SignatureLogic
         $pageSize = (int) ($params['page_size'] ?? 20);
 
         $total = $query->count();
-        $list = $query->forPage($page, $pageSize)->get()->toArray();
+        // 列表只返回轻量字段，签名图片仅在详情、编辑或签名选择器中按需读取。
+        $list = $query
+            ->forPage($page, $pageSize)
+            ->get([
+                'id',
+                'name',
+                'remark',
+                'sort',
+                'created_by',
+                'updated_by',
+                'created_at',
+                'updated_at',
+            ])
+            ->toArray();
 
         $adminIds = [];
         foreach ($list as $item) {
