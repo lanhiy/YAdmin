@@ -25,7 +25,7 @@ class VerificationCertRequest extends FormRequest
         return [
             'id' => 'required|integer',
             'product_id' => 'required|integer|min:1',
-            'cert_no' => 'required|string|max:50',
+            'cert_no' => 'required|string|max:100',
             'submit_unit' => 'string|max:150',
             'basis' => 'string|max:500',
             'conclusion' => 'string|max:255',
@@ -70,7 +70,7 @@ class VerificationCertRequest extends FormRequest
             'product_id.required' => '请选择产品',
             'product_id.min' => '产品不合法',
             'cert_no.required' => '请输入证书编号',
-            'cert_no.max' => '证书编号最多50个字符',
+            'cert_no.max' => '证书编号最多100个字符',
             'submit_unit.max' => '送检单位最多150个字符',
             'basis.max' => '检定依据最多500个字符',
             'conclusion.max' => '检定结论最多255个字符',

@@ -15,9 +15,16 @@ namespace App\Controller;
 use App\Exception\BusinessException;
 use App\Model\Product;
 use App\Model\ProductCertificate;
+use Hyperf\Di\Annotation\Inject;
+use Psr\SimpleCache\CacheInterface;
 
 class IndexController extends AbstractController
 {
+    private const CERTIFICATE_CACHE_TTL = 300;
+
+    #[Inject]
+    protected CacheInterface $cache;
+
     public function index()
     {
         $user = $this->request->input('user', 'Hyperf');
@@ -40,8 +47,14 @@ class IndexController extends AbstractController
     public function certificate(string $token): array
     {
         $token = strtolower(trim($token));
-        if (preg_match('/^[a-f0-9]{32}$/', $token) !== 1) {
+        if (preg_match('/^[a-f0-9]{8}$/', $token) !== 1) {
             throw new BusinessException('证书链接无效');
+        }
+
+        $cacheKey = 'public:certificate:' . $token;
+        $cached = $this->cache->get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
         }
 
         $certificate = ProductCertificate::query()->where('public_token', $token)->first();
@@ -68,7 +81,7 @@ class IndexController extends AbstractController
             ? $certificate->valid_until
             : '';
 
-        return [
+        $result = [
             'certificate_no' => $this->stringValue($certificate->certificate_no),
             'unit_name' => $this->stringValue($unitName),
             'instrument_name' => $this->stringValue($product?->instrument_name),
@@ -80,6 +93,10 @@ class IndexController extends AbstractController
             // 当前模型没有独立的校验单位字段，保留固定字段并返回空字符串。
             'check_unit' => '',
         ];
+
+        $this->cache->set($cacheKey, $result, self::CERTIFICATE_CACHE_TTL);
+
+        return $result;
     }
 
     private function stringValue(mixed $value): string

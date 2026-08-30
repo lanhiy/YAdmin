@@ -25,7 +25,7 @@ class CalibrationCertRequest extends FormRequest
         return [
             'id' => 'required|integer',
             'product_id' => 'required|integer|min:1',
-            'cert_no' => 'required|string|max:50',
+            'cert_no' => 'required|string|max:100',
             'client_name' => 'string|max:150',
             'address' => 'string|max:255',
             'approver_sign_img' => ['string', new Base64Image()],
@@ -70,7 +70,7 @@ class CalibrationCertRequest extends FormRequest
             'product_id.required' => '请选择产品',
             'product_id.min' => '产品不合法',
             'cert_no.required' => '请输入证书编号',
-            'cert_no.max' => '证书编号最多50个字符',
+            'cert_no.max' => '证书编号最多100个字符',
             'client_name.max' => '委托方最多150个字符',
             'address.max' => '地址最多255个字符',
             'receive_date.required' => '请选择接收日期',

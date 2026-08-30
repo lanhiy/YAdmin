@@ -65,10 +65,10 @@ class ProductCertificate extends Model
         'deleted_at' => 'datetime',
     ];
 
-    /** Generate the public URL token kept with each certificate record. */
+    /** Generate the short public URL token kept with each certificate record. */
     public static function generatePublicToken(): string
     {
-        return bin2hex(random_bytes(16));
+        return bin2hex(random_bytes(4));
     }
 
     public function product(): BelongsTo

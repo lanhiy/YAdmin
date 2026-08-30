@@ -7,7 +7,7 @@ use App\Middleware\PermissionMiddleware;
 use Hyperf\HttpServer\Router\Router;
 
 Router::addRoute(['GET', 'POST', 'HEAD'], '/', [App\Controller\IndexController::class, 'index']);
-Router::get('/certificate/{token:[a-fA-F0-9]{32}}', [App\Controller\IndexController::class, 'certificate']);
+Router::get('/certificate/{token:[a-fA-F0-9]{8}}', [App\Controller\IndexController::class, 'certificate']);
 
 // ========== 不需要认证的路由 ==========
 Router::post('/system/login', [App\System\Controller\UserController::class, 'login']);

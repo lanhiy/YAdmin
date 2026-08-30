@@ -191,7 +191,7 @@ class ProductLogic
                     'product_id' => $productId,
                     'certificate_type' => ProductCertificate::TYPE_TEST_REPORT,
                     'public_token' => ProductCertificate::generatePublicToken(),
-                    'certificate_no' => $this->appendCopySuffix((string) $testReport->certificate_no, $suffix, 50, true),
+                    'certificate_no' => $this->appendCopySuffix((string) $testReport->certificate_no, $suffix, 100, true),
                     'client_name' => $testReport->client_name,
                     'approver_sign_img' => $testReport->approver_sign_img,
                     'reviewer_sign_img' => $testReport->reviewer_sign_img,
@@ -210,7 +210,7 @@ class ProductLogic
                     'product_id' => $productId,
                     'certificate_type' => ProductCertificate::TYPE_VERIFICATION_CERT,
                     'public_token' => ProductCertificate::generatePublicToken(),
-                    'certificate_no' => $this->appendCopySuffix((string) $verificationCert->certificate_no, $suffix, 50, true),
+                    'certificate_no' => $this->appendCopySuffix((string) $verificationCert->certificate_no, $suffix, 100, true),
                     'submit_unit' => $verificationCert->submit_unit,
                     'basis' => $verificationCert->basis,
                     'conclusion' => $verificationCert->conclusion,
@@ -232,7 +232,7 @@ class ProductLogic
                     'product_id' => $productId,
                     'certificate_type' => ProductCertificate::TYPE_CALIBRATION_CERT,
                     'public_token' => ProductCertificate::generatePublicToken(),
-                    'certificate_no' => $this->appendCopySuffix((string) $calibrationCert->certificate_no, $suffix, 50, true),
+                    'certificate_no' => $this->appendCopySuffix((string) $calibrationCert->certificate_no, $suffix, 100, true),
                     'client_name' => $calibrationCert->client_name,
                     'address' => $calibrationCert->address,
                     'approver_sign_img' => $calibrationCert->approver_sign_img,
@@ -399,7 +399,7 @@ class ProductLogic
             throw new BusinessException('请先在系统配置中配置证书公开查询地址 Host');
         }
 
-        return rtrim($host, '/') . '/certificate/' . $publicToken;
+        return rtrim($host, '/') . '/cert/' . $publicToken;
     }
 
     private function certificateToApi(?array $data, string $noField): ?array

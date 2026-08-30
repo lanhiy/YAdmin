@@ -22,7 +22,7 @@ class ProductRequest extends FormRequest
         return [
             'id' => 'required|integer',
             'instrument_name' => 'required|string|max:100',
-            'instrument_no' => 'required|string|max:50',
+            'instrument_no' => 'required|string|max:100',
             'model' => 'string|max:100',
             'manufacturer' => 'string|max:150',
             'remark' => 'string|max:500',
@@ -55,7 +55,7 @@ class ProductRequest extends FormRequest
             'instrument_name.required' => '请输入器具名称',
             'instrument_name.max' => '器具名称最多100个字符',
             'instrument_no.required' => '请输入器具编号',
-            'instrument_no.max' => '器具编号最多50个字符',
+            'instrument_no.max' => '器具编号最多100个字符',
             'model.max' => '型号最多100个字符',
             'manufacturer.max' => '制造厂商最多150个字符',
         ];
